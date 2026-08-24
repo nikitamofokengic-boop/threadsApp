@@ -1,0 +1,2 @@
+rootProject.name = 'threads-app'
+include ':app'

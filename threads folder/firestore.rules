@@ -1,0 +1,30 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Allow read/write for app documents with basic access controls
+    match /sheets/{sheetId} {
+      allow read, write: if true;
+    }
+
+    match /roles/{roleId} {
+      allow read, write: if true;
+    }
+
+    match /users/{userId} {
+      allow read, write: if true;
+    }
+
+    match /appUsers/{userId} {
+      allow read, write: if true;
+    }
+
+    match /app_data/{dataId} {
+      allow read, write: if true;
+    }
+
+    match /settings/{settingId} {
+      allow read, write: if true;
+    }
+  }
+}

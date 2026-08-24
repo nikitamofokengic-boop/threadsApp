@@ -1,0 +1,6 @@
+{
+  "name": "THREADS Factory Intelligence",
+  "description": "Total Headcount, Revenue, Efficiency & Apparel Dashboard for CMT garment manufacturing, featuring pastel pink theme, clock-in system import, and starting from July 21st 2026 pay cycle.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

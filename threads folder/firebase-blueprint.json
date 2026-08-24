@@ -1,0 +1,82 @@
+{
+  "entities": {
+    "sheets": {
+      "title": "Shift Sheets",
+      "description": "Daily operational shift sheet logs including headcount, style earnings, and SAH data",
+      "type": "object",
+      "properties": {
+        "label": { "type": "string" },
+        "departments": { "type": "array" },
+        "earnings": { "type": "array" },
+        "sahData": { "type": "array" },
+        "shiftOtHours": { "type": "number" }
+      },
+      "required": ["label"]
+    },
+    "roles": {
+      "title": "Role Permissions",
+      "description": "Role permissions matrix configuration",
+      "type": "object",
+      "properties": {
+        "roleId": { "type": "string" },
+        "roleName": { "type": "string" },
+        "allowedTabs": { "type": "array" },
+        "canEditHeadcount": { "type": "string" },
+        "canEditWages": { "type": "boolean" },
+        "canEditEarnings": { "type": "boolean" },
+        "canEditSAH": { "type": "boolean" },
+        "canEditOverheads": { "type": "boolean" },
+        "canAddDeleteDates": { "type": "boolean" },
+        "canManageRoles": { "type": "boolean" }
+      },
+      "required": ["roleId", "roleName"]
+    },
+    "appUsers": {
+      "title": "Application Users",
+      "description": "User accounts with assigned roles and credentials",
+      "type": "object",
+      "properties": {
+        "username": { "type": "string" },
+        "name": { "type": "string" },
+        "role": { "type": "string" },
+        "roleName": { "type": "string" },
+        "deptAccess": { "type": "string" }
+      },
+      "required": ["username", "role"]
+    },
+    "appData": {
+      "title": "App Data Workspace",
+      "description": "Global active workspace state containing all shift date sheets, overheads, payroll parameters, subsidiaries, allocations, and subsidy programs",
+      "type": "object",
+      "properties": {
+        "sheets": { "type": "array" },
+        "overheads": { "type": "object" },
+        "payrollParams": { "type": "object" },
+        "subsidiaries": { "type": "array" },
+        "subsidiaryAllocations": { "type": "array" },
+        "subsidyPrograms": { "type": "array" },
+        "hiddenSheetIds": { "type": "array" },
+        "lastUpdated": { "type": "number" },
+        "updatedBy": { "type": "string" }
+      }
+    }
+  },
+  "firestore": {
+    "/sheets/{sheetId}": {
+      "schema": { "$ref": "#/entities/sheets" },
+      "description": "Collection of shift sheets"
+    },
+    "/roles/{roleId}": {
+      "schema": { "$ref": "#/entities/roles" },
+      "description": "Role permissions matrix"
+    },
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/appUsers" },
+      "description": "App users accounts"
+    },
+    "/app_data/{dataId}": {
+      "schema": { "$ref": "#/entities/appData" },
+      "description": "Shared workspace app data"
+    }
+  }
+}
