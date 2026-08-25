@@ -16,7 +16,7 @@ interface ParsedRow {
   cmPrice: number;
   plannedQty: number;
   qtyProduced: number;
-  smv: number;
+  modules: string[];
   isValid: boolean;
   errors: string[];
 }
@@ -42,25 +42,34 @@ export default function ExcelStyleUploader({
         "Style Code": "NWJ1492/A",
         "CM Price": 12.50,
         "Planned Target Qty": 600,
-        "SMV (Minutes)": 8.5
+        "Module 1": "",
+        "Module 2": "",
+        "Module 3": "",
+        "Module 4": "",
+        "Module 5": "",
+        "Module 6": "",
+        "Module 7": "",
+        "Module 8": "",
+        "Module 9": "",
+        "Module 10": ""
       },
       {
         "Style Code": "NWJ1501/B",
         "CM Price": 14.00,
         "Planned Target Qty": 450,
-        "SMV (Minutes)": 10.2
+        "Module 1": ""
       },
       {
         "Style Code": "TSH2024/M",
         "CM Price": 8.75,
         "Planned Target Qty": 1000,
-        "SMV (Minutes)": 5.0
+        "Module 1": ""
       },
       {
         "Style Code": "DRS3088/C",
         "CM Price": 18.20,
         "Planned Target Qty": 350,
-        "SMV (Minutes)": 14.0
+        "Module 1": ""
       }
     ];
 
@@ -71,7 +80,7 @@ export default function ExcelStyleUploader({
       { wch: 18 }, // Style Code
       { wch: 12 }, // CM Price
       { wch: 20 }, // Planned Target Qty
-      { wch: 15 }  // SMV
+      ...Array.from({ length: 10 }, () => ({ wch: 14 }))
     ];
 
     const wb = XLSX.utils.book_new();
@@ -159,14 +168,11 @@ export default function ExcelStyleUploader({
 
           const qtyProducedNum = parseInt(String(rawActual).replace(/[^0-9]/g, ''), 10) || 0;
 
-          // Detect SMV
-          const rawSmv = 
-            normalizedRow['smvminutes'] ?? 
-            normalizedRow['smv'] ?? 
-            normalizedRow['standardminutes'] ?? 
-            10.0;
-
-          const smvNum = parseFloat(String(rawSmv).replace(/[^0-9.]/g, '')) || 10.0;
+          const modules = Array.from({ length: 10 }, (_, moduleIndex) => {
+            const moduleNumber = moduleIndex + 1;
+            const value = normalizedRow[`module${moduleNumber}`] ?? normalizedRow[`mod${moduleNumber}`] ?? '';
+            return String(value).trim();
+          });
 
           const rowErrors: string[] = [];
           if (!styleStr) rowErrors.push("Missing style name");
@@ -178,7 +184,7 @@ export default function ExcelStyleUploader({
             cmPrice: cmPriceNum,
             plannedQty: plannedQtyNum > 0 ? plannedQtyNum : (qtyProducedNum > 0 ? Math.round(qtyProducedNum * 1.15) : 500),
             qtyProduced: 0,
-            smv: smvNum,
+            modules,
             isValid: rowErrors.length === 0,
             errors: rowErrors
           };
@@ -218,7 +224,7 @@ export default function ExcelStyleUploader({
         cmPrice: r.cmPrice,
         plannedQty: r.plannedQty,
         qtyProduced: r.qtyProduced,
-        smv: r.smv
+        modules: r.modules
       }));
 
     onApplyStyles(validStyles, importMode);

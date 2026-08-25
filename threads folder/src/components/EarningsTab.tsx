@@ -116,7 +116,7 @@ export default function EarningsTab({
               id: finalId,
               style: newStyle.style,
               cmPrice: newStyle.cmPrice,
-              smv: newStyle.smv,
+              modules: newStyle.modules ?? existing.modules,
               plannedQty: newStyle.plannedQty ?? existing.plannedQty,
               qtyProduced: existing.qtyProduced
             };
@@ -172,9 +172,9 @@ export default function EarningsTab({
       id: `style_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
       style: "NEW STYLE",
       cmPrice: 10.0,
-      smv: 10.0, // Default Standard Minute Value
       plannedQty: 500,
-      qtyProduced: 0
+      qtyProduced: 0,
+      modules: []
     };
     updateEarningsState([...sheet.earnings, newStyle]);
   };
@@ -387,7 +387,6 @@ export default function EarningsTab({
               Style Specifications & Daily Production Outputs
             </h2>
             <span className="inline-flex items-center gap-1 text-[10px] bg-indigo-50 text-indigo-700 border border-indigo-100 font-bold px-2 py-0.5 rounded-md">
-              <Sparkles className="w-3 h-3" /> SMVs Included
             </span>
             <span className="inline-flex items-center gap-1 text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-100 font-bold px-2 py-0.5 rounded-md">
               <CheckCircle2 className="w-3 h-3" /> Daily Output Active
@@ -475,9 +474,11 @@ export default function EarningsTab({
                           <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" title="Output Active Today" />
                         )}
                       </div>
-                      <div className="text-[10px] text-slate-400 font-mono mt-0.5">
-                        SMV: {e.smv || 10.0} min
-                      </div>
+                      {!!e.modules?.length && (
+                        <div className="text-[10px] text-slate-500 font-mono mt-0.5">
+                          Modules: {e.modules.map((module, moduleIndex) => module ? `M${moduleIndex + 1}: ${module}` : '').filter(Boolean).join(' | ')}
+                        </div>
+                      )}
                     </td>
                     <td className="p-3 text-right">
                       <EditableCell

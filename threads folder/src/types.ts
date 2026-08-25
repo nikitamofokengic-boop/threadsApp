@@ -57,9 +57,10 @@ export interface StyleEarning {
   id: string;
   style: string;
   cmPrice: number;
-  smv: number; // Standard Minute Value - user requested SMVs for each style!
+  smv?: number; // Legacy field retained for compatibility with existing saved data.
   qtyProduced: number;
   plannedQty?: number; // Target / Planned production volume in pcs
+  modules?: string[]; // Production modules assigned to this style, Module 1 through Module 10.
 }
 
 export interface SahRecord {
