@@ -6,15 +6,15 @@
     <title>THREADS Factory Operations</title>
     
     <!-- PWA Web App Manifest & Theme -->
-    <link rel="manifest" href="/manifest.json" />
+    <link rel="manifest" href="%BASE_URL%manifest.json" />
     <meta name="theme-color" content="#db2777" />
-    <link rel="icon" type="image/svg+xml" href="/icon-192.svg" />
+    <link rel="icon" type="image/svg+xml" href="%BASE_URL%icon-192.svg" />
     
     <!-- iOS / Safari PWA Meta Tags -->
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="THREADS" />
-    <link rel="apple-touch-icon" href="/icon-192.svg" />
+    <link rel="apple-touch-icon" href="%BASE_URL%icon-192.svg" />
   </head>
   <body>
     <div id="root"></div>
@@ -22,7 +22,7 @@
     <script>
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/sw.js').catch((err) => {
+          navigator.serviceWorker.register('%BASE_URL%sw.js').catch((err) => {
             console.log('SW registration failed: ', err);
           });
         });

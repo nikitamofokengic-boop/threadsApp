@@ -10,6 +10,7 @@
     "preview": "vite preview",
     "clean": "rm -rf dist",
     "lint": "tsc --noEmit",
+    "build:pages": "vite build",
     "build:android": "vite build && node scripts/copy-android-assets.js"
   },
   "dependencies": {
