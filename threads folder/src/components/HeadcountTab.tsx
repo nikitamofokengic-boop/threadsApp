@@ -48,7 +48,15 @@ export default function HeadcountTab({
   const [showAddDeptModal, setShowAddDeptModal] = useState(false);
   const [showResetCleanSlateModal, setShowResetCleanSlateModal] = useState(false);
   const [deptToDelete, setDeptToDelete] = useState<{ id: string; name: string; rolesCount: number } | null>(null);
-  const [deptToSetWage, setDeptToSetWage] = useState<{ id: string; name: string; permWage: number; tempWage: number; applyToAllDates: boolean } | null>(null);
+  const [deptToSetWage, setDeptToSetWage] = useState<{
+    id: string;
+    name: string;
+    permWage: number;
+    tempWage: number;
+    adjustmentMode: 'set' | 'percentage';
+    adjustmentPercent: number;
+    applyToAllDates: boolean;
+  } | null>(null);
 
   const canEditAnyWages = Boolean(canEditWages || canEditHeadcount);
 
@@ -65,12 +73,23 @@ export default function HeadcountTab({
     const updateDeptList = (depts: Department[]) => {
       return depts.map((d) => {
         if (d.id !== deptId && d.name.toUpperCase() !== deptToSetWage?.name.toUpperCase()) return d;
-        const updatedRoles = d.roles.map((r) => ({
-          ...r,
-          permWage: pW,
-          tempWage: tW,
-          cost: (r.perm * pW) + (r.temp * tW)
-        }));
+        const updatedRoles = d.roles.map((r) => {
+          const factor = deptToSetWage?.adjustmentMode === 'percentage'
+            ? Math.max(0, 1 + ((deptToSetWage.adjustmentPercent || 0) / 100))
+            : 1;
+          const nextPermWage = deptToSetWage?.adjustmentMode === 'percentage'
+            ? Math.round(r.permWage * factor * 100) / 100
+            : pW;
+          const nextTempWage = deptToSetWage?.adjustmentMode === 'percentage'
+            ? Math.round(r.tempWage * factor * 100) / 100
+            : tW;
+          return {
+            ...r,
+            permWage: nextPermWage,
+            tempWage: nextTempWage,
+            cost: (r.perm * nextPermWage) + (r.temp * nextTempWage)
+          };
+        });
         return { ...d, roles: updatedRoles };
       });
     };
@@ -901,7 +920,7 @@ export default function HeadcountTab({
                             onClick={() => {
                               const avgP = d.roles.length > 0 ? (d.roles[0].permWage || 146.00) : 146.00;
                               const avgT = d.roles.length > 0 ? (d.roles[0].tempWage || 125.95) : 125.95;
-                              setDeptToSetWage({ id: d.id, name: d.name, permWage: avgP, tempWage: avgT, applyToAllDates: false });
+                              setDeptToSetWage({ id: d.id, name: d.name, permWage: avgP, tempWage: avgT, adjustmentMode: 'set', adjustmentPercent: 0, applyToAllDates: false });
                             }}
                             className="px-2 py-1 text-[10px] font-bold rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white flex items-center gap-1 transition shadow-2xs"
                             title={`Edit daily wage rate for ${d.name}`}
@@ -1314,7 +1333,7 @@ export default function HeadcountTab({
                                 onClick={() => {
                                   const avgP = d.roles.length > 0 ? (d.roles[0].permWage || 146.00) : 146.00;
                                   const avgT = d.roles.length > 0 ? (d.roles[0].tempWage || 125.95) : 125.95;
-                                  setDeptToSetWage({ id: d.id, name: d.name, permWage: avgP, tempWage: avgT, applyToAllDates: false });
+                                  setDeptToSetWage({ id: d.id, name: d.name, permWage: avgP, tempWage: avgT, adjustmentMode: 'set', adjustmentPercent: 0, applyToAllDates: false });
                                 }}
                                 className="inline-flex items-center gap-1 px-2 py-1 text-[10px] font-bold rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 transition cursor-pointer shadow-2xs"
                                 title={`Set wage rates for all roles in ${d.name}`}
@@ -1790,6 +1809,50 @@ export default function HeadcountTab({
             <div className="space-y-3">
               <div>
                 <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                  Wage Update Method
+                </label>
+                <select
+                  value={deptToSetWage.adjustmentMode}
+                  onChange={(e) => setDeptToSetWage({
+                    ...deptToSetWage,
+                    adjustmentMode: e.target.value as 'set' | 'percentage'
+                  })}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-sm font-bold text-slate-900 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                >
+                  <option value="set">Set fixed daily wage rates</option>
+                  <option value="percentage">Adjust existing rates by percentage</option>
+                </select>
+              </div>
+
+              {deptToSetWage.adjustmentMode === 'percentage' && (
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                    Percentage Adjustment
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      step={0.1}
+                      min={-100}
+                      value={deptToSetWage.adjustmentPercent}
+                      onChange={(e) => setDeptToSetWage({
+                        ...deptToSetWage,
+                        adjustmentPercent: parseFloat(e.target.value) || 0
+                      })}
+                      className="w-full pr-9 pl-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-sm font-mono font-bold text-slate-900 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                    />
+                    <span className="absolute right-3 top-2 text-sm text-slate-400 font-bold">%</span>
+                  </div>
+                  <p className="text-[10px] text-slate-400 mt-1">
+                    Use a positive value to increase wages or a negative value to reduce them. Current role rates are preserved individually.
+                  </p>
+                </div>
+              )}
+
+              {deptToSetWage.adjustmentMode === 'set' && (
+                <>
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
                   Permanent Staff Daily Wage ({currency}/day)
                 </label>
                 <div className="relative">
@@ -1823,6 +1886,8 @@ export default function HeadcountTab({
                 </div>
                 <p className="text-[10px] text-slate-400 mt-1">Standard factory default: M 125.95/day</p>
               </div>
+                </>
+              )}
 
               {sheets.length > 1 && onUpdateAllSheets && (
                 <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
@@ -1852,7 +1917,7 @@ export default function HeadcountTab({
                 onClick={() => handleApplyDeptWages(deptToSetWage.id, deptToSetWage.permWage, deptToSetWage.tempWage, deptToSetWage.applyToAllDates)}
                 className="px-5 py-2 text-xs font-extrabold text-white bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 rounded-xl shadow-xs transition cursor-pointer"
               >
-                Apply Wage Rates
+                {deptToSetWage.adjustmentMode === 'percentage' ? 'Apply Percentage Adjustment' : 'Apply Wage Rates'}
               </button>
             </div>
           </div>
