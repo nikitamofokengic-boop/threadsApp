@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { SheetData, Department, EmployeeRole } from '../types';
 import EditableCell from './EditableCell';
-import BatchWageUpdateModal from './BatchWageUpdateModal';
 import BatchTempWageModal from './BatchTempWageModal';
 import AddDepartmentModal from './AddDepartmentModal';
 import ConfirmModal from './ConfirmModal';
@@ -43,7 +42,6 @@ export default function HeadcountTab({
   const [newRoleTempW, setNewRoleTempW] = useState(125.95);
 
   // Modals state
-  const [showBatchWageModal, setShowBatchWageModal] = useState(false);
   const [showBatchTempWageModal, setShowBatchTempWageModal] = useState(false);
   const [showAddDeptModal, setShowAddDeptModal] = useState(false);
   const [showResetCleanSlateModal, setShowResetCleanSlateModal] = useState(false);
@@ -374,17 +372,6 @@ export default function HeadcountTab({
 
             {canEditAnyWages && (
               <>
-                <button
-                  type="button"
-                  onClick={() => setShowBatchWageModal(true)}
-                  className="px-2.5 sm:px-3 py-1.5 bg-gradient-to-r from-indigo-600 to-indigo-800 hover:from-indigo-700 hover:to-indigo-900 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-2xs transition cursor-pointer hover:scale-[1.01] shrink-0"
-                  title="Edit Daily Wages for all staff classifying by Machine Operators, Supervisors, and General Workers"
-                >
-                  <DollarSign className="w-3.5 h-3.5 text-emerald-300" />
-                  <span>Daily Wages</span>
-                  <span className="hidden sm:inline text-[10px] text-indigo-200 font-medium">(MO/Sup/Gen)</span>
-                </button>
-
                 <button
                   type="button"
                   onClick={() => setShowBatchTempWageModal(true)}
@@ -1054,16 +1041,6 @@ export default function HeadcountTab({
                                   <DollarSign className="w-3 h-3 text-emerald-600" />
                                   Daily Wage Rates (M/day)
                                 </span>
-                                {canEditAnyWages && (
-                                  <button
-                                    type="button"
-                                    onClick={() => setShowBatchWageModal(true)}
-                                    className="text-[8px] font-bold text-indigo-700 hover:underline uppercase flex items-center gap-0.5"
-                                  >
-                                    <Edit3 className="w-2.5 h-2.5" />
-                                    <span>Batch</span>
-                                  </button>
-                                )}
                               </div>
                               <div className="flex items-center justify-between text-[11px] font-mono bg-emerald-50/50 p-1.5 rounded-lg border border-emerald-100">
                                 <div>
@@ -1077,8 +1054,8 @@ export default function HeadcountTab({
                                   step={0.01}
                                   prefix={`${currency} `}
                                   suffix="/d"
-                                  onSave={(val) => handleUpdateRole(d.id, r.id, 'permWage', val)}
-                                  isEditable={deptEditable && canEditAnyWages}
+                                  onSave={() => undefined}
+                                  isEditable={false}
                                   className="font-black text-emerald-950 bg-white border-emerald-300 shadow-2xs"
                                 />
                               </div>
@@ -1168,16 +1145,6 @@ export default function HeadcountTab({
                 <th className="p-3 text-right text-emerald-900 bg-emerald-50/50">
                   <div className="flex items-center justify-end gap-1">
                     <span>Perm Wage Rate & Cost</span>
-                    {canEditAnyWages && (
-                      <button
-                        type="button"
-                        onClick={() => setShowBatchWageModal(true)}
-                        className="p-1 rounded-md bg-emerald-200 hover:bg-emerald-300 text-emerald-950 transition cursor-pointer"
-                        title="Quick edit daily wages by classification"
-                      >
-                        <Edit3 className="w-3 h-3 text-emerald-900" />
-                      </button>
-                    )}
                   </div>
                 </th>
                 <th className="p-3 text-right text-pink-950 bg-pink-50/60">
@@ -1436,8 +1403,8 @@ export default function HeadcountTab({
                                   step={0.01}
                                   prefix={`${currency} `}
                                   suffix="/d"
-                                  onSave={(val) => handleUpdateRole(d.id, r.id, 'permWage', val)}
-                                  isEditable={deptEditable && canEditAnyWages}
+                                  onSave={() => undefined}
+                                  isEditable={false}
                                   className="font-mono text-emerald-950 font-black bg-emerald-100/70 border-emerald-300 px-2 py-0.5 shadow-2xs"
                                 />
                               </div>
@@ -1449,8 +1416,8 @@ export default function HeadcountTab({
                                   min={0}
                                   step={1}
                                   prefix={`${currency} `}
-                                  onSave={(val) => handleUpdateRole(d.id, r.id, 'permCost', val)}
-                                  isEditable={deptEditable && canEditAnyWages}
+                                  onSave={() => undefined}
+                                  isEditable={false}
                                   className="font-mono font-bold text-emerald-900"
                                 />
                               </div>
@@ -1710,18 +1677,6 @@ export default function HeadcountTab({
         onUpdateSheet={onUpdateSheet}
         onUpdateAllSheets={onUpdateAllSheets}
         currency={currency}
-      />
-
-      {/* Batch Wage Adjustment Modal */}
-      <BatchWageUpdateModal
-        isOpen={showBatchWageModal}
-        onClose={() => setShowBatchWageModal(false)}
-        currentSheet={sheet}
-        allSheets={sheets}
-        onUpdateSheet={onUpdateSheet}
-        onUpdateAllSheets={onUpdateAllSheets}
-        currency={currency}
-        canEditWages={canEditWages}
       />
 
       {/* Batch Temporary Wages Modal */}
