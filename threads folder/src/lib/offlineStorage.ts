@@ -370,7 +370,10 @@ export async function flushPendingSyncToCloud(): Promise<{ success: boolean; err
     try {
       const ok = await safeSetDoc(doc(appDataCol, 'workspace'), pending.workspace, { merge: true });
       if (ok) {
-        clearPendingSync('workspace');
+        const latestPending = getPendingSync();
+        if (latestPending?.workspace?.lastUpdated === pending.workspace.lastUpdated) {
+          clearPendingSync('workspace');
+        }
       } else {
         allSucceeded = false;
       }
@@ -385,7 +388,10 @@ export async function flushPendingSyncToCloud(): Promise<{ success: boolean; err
     try {
       const ok = await safeSetDoc(doc(usersCol, 'app_users'), { users: pending.users });
       if (ok) {
-        clearPendingSync('users');
+        const latestPending = getPendingSync();
+        if (JSON.stringify(latestPending?.users) === JSON.stringify(pending.users)) {
+          clearPendingSync('users');
+        }
       } else {
         allSucceeded = false;
       }
@@ -400,7 +406,10 @@ export async function flushPendingSyncToCloud(): Promise<{ success: boolean; err
     try {
       const ok = await safeSetDoc(doc(rolesCol, 'permissions_matrix'), { matrix: pending.roles });
       if (ok) {
-        clearPendingSync('roles');
+        const latestPending = getPendingSync();
+        if (JSON.stringify(latestPending?.roles) === JSON.stringify(pending.roles)) {
+          clearPendingSync('roles');
+        }
       } else {
         allSucceeded = false;
       }

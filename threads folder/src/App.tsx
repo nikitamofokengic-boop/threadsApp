@@ -417,7 +417,9 @@ export default function App() {
       setFirebaseConnected(true);
       const res = await flushPendingSyncToCloud();
       setHasPendingSync(hasPendingChanges());
-      handleManualSync(true); // Silent sync on reconnect
+      if (res.success && !hasPendingChanges()) {
+        handleManualSync(true); // Silent sync on reconnect
+      }
     };
     const handleOffline = () => {
       setIsOnline(false);
@@ -429,9 +431,11 @@ export default function App() {
     // Visibility change / Window Focus: auto-sync and push pending data when user returns to app
     const handleVisibilityOrFocus = async () => {
       if (document.visibilityState === 'visible' && navigator.onLine) {
-        await flushPendingSyncToCloud();
+        const res = await flushPendingSyncToCloud();
         setHasPendingSync(hasPendingChanges());
-        handleManualSync(true);
+        if (res.success && !hasPendingChanges()) {
+          handleManualSync(true);
+        }
       }
     };
     document.addEventListener('visibilitychange', handleVisibilityOrFocus);
@@ -766,9 +770,17 @@ export default function App() {
   const handleManualSync = async (silent = false) => {
     if (!silent) setIsSyncing(true);
     try {
+      const localSyncStartedAt = getLastLocalModifiedTs();
+      if (hasPendingChanges()) {
+        const flushResult = await flushPendingSyncToCloud();
+        setHasPendingSync(hasPendingChanges());
+        if (!flushResult.success || hasPendingChanges()) return;
+      }
+
       const workspaceSnap = await safeGetDoc(doc(appDataCol, 'workspace'));
       if (workspaceSnap && workspaceSnap.exists()) {
         const data = workspaceSnap.data();
+        if (hasPendingChanges() || getLastLocalModifiedTs() > localSyncStartedAt) return;
         if (data && Array.isArray(data.sheets) && data.sheets.length > 0) {
           const fullSheets = sortSheetsChronologically(ensureAllPayCycleDates(data.sheets));
           setSheets(fullSheets);
