@@ -65,7 +65,6 @@ export default function HeadcountTab({
   };
 
   const handleApplyDeptWages = (deptId: string, permWage: number, tempWage: number, applyToAllDates: boolean = false) => {
-    const pW = Math.max(0, permWage);
     const tW = Math.max(0, tempWage);
 
     const updateDeptList = (depts: Department[]) => {
@@ -73,9 +72,8 @@ export default function HeadcountTab({
         if (d.id !== deptId && d.name.toUpperCase() !== deptToSetWage?.name.toUpperCase()) return d;
         const updatedRoles = d.roles.map((r) => ({
           ...r,
-          permWage: pW,
           tempWage: tW,
-          cost: (r.perm * pW) + (r.temp * tW)
+          cost: (r.perm * r.permWage) + (r.temp * tW)
         }));
         return { ...d, roles: updatedRoles };
       });
@@ -910,10 +908,10 @@ export default function HeadcountTab({
                               setDeptToSetWage({ id: d.id, name: d.name, permWage: avgP, tempWage: avgT, applyToAllDates: false });
                             }}
                             className="px-2 py-1 text-[10px] font-bold rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white flex items-center gap-1 transition shadow-2xs"
-                            title={`Edit daily wage rate for ${d.name}`}
+                            title={`Edit temporary wage rate for ${d.name}`}
                           >
                             <DollarSign className="w-3 h-3 text-emerald-200" />
-                            <span>Wage Rates</span>
+                            <span>Temp Wage</span>
                           </button>
                         )}
                         {deptEditable && (
@@ -1323,9 +1321,9 @@ export default function HeadcountTab({
                                   setDeptToSetWage({ id: d.id, name: d.name, permWage: avgP, tempWage: avgT, applyToAllDates: false });
                                 }}
                                 className="inline-flex items-center gap-1 px-2 py-1 text-[10px] font-bold rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 transition cursor-pointer shadow-2xs"
-                                title={`Set wage rates for all roles in ${d.name}`}
+                                title={`Set temporary wage rate for all roles in ${d.name}`}
                               >
-                                <DollarSign className="w-3 h-3 text-emerald-600" /> Wages
+                                <DollarSign className="w-3 h-3 text-emerald-600" /> Temp Wage
                               </button>
                             )}
                             <button
@@ -1779,9 +1777,9 @@ export default function HeadcountTab({
                 </div>
                 <div>
                   <h3 className="text-sm font-extrabold text-slate-900 uppercase tracking-wide">
-                    Set Daily Wages for {deptToSetWage.name}
+                    Set Temporary Daily Wage for {deptToSetWage.name}
                   </h3>
-                  <p className="text-xs text-slate-500">Apply daily wage rates to all roles in this department</p>
+                  <p className="text-xs text-slate-500">Apply the temporary daily wage to all roles in this department</p>
                 </div>
               </div>
               <button
@@ -1796,7 +1794,7 @@ export default function HeadcountTab({
             <div className="space-y-3">
               <div>
                 <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
-                  Permanent Staff Daily Wage ({currency}/day)
+                  Permanent Staff Wage (unchanged)
                 </label>
                 <div className="relative">
                   <span className="absolute left-3 top-2.5 text-xs text-slate-400 font-mono">{currency}</span>
@@ -1805,11 +1803,12 @@ export default function HeadcountTab({
                     step={0.01}
                     min={0}
                     value={deptToSetWage.permWage}
-                    onChange={(e) => setDeptToSetWage({ ...deptToSetWage, permWage: parseFloat(e.target.value) || 0 })}
+                    readOnly
+                    aria-label="Permanent staff wage unchanged"
                     className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-sm font-mono font-bold text-slate-900 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                   />
                 </div>
-                <p className="text-[10px] text-slate-400 mt-1">Standard factory default: M 146.00 (Operators) / M 140.00 (General) / M 180.00 (Supervisors)</p>
+                <p className="text-[10px] text-slate-400 mt-1">Permanent wage rates remain unchanged.</p>
               </div>
 
               <div>
@@ -1839,7 +1838,7 @@ export default function HeadcountTab({
                       onChange={(e) => setDeptToSetWage({ ...deptToSetWage, applyToAllDates: e.target.checked })}
                       className="w-4 h-4 text-emerald-600 rounded focus:ring-emerald-500"
                     />
-                    <span>Apply these wage rates across ALL {sheets.length} shift dates</span>
+                    <span>Apply this temporary wage across ALL {sheets.length} shift dates</span>
                   </label>
                 </div>
               )}
@@ -1858,7 +1857,7 @@ export default function HeadcountTab({
                 onClick={() => handleApplyDeptWages(deptToSetWage.id, deptToSetWage.permWage, deptToSetWage.tempWage, deptToSetWage.applyToAllDates)}
                 className="px-5 py-2 text-xs font-extrabold text-white bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 rounded-xl shadow-xs transition cursor-pointer"
               >
-                Apply Wage Rates
+                Apply Temporary Wage
               </button>
             </div>
           </div>
