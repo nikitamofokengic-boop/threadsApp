@@ -151,6 +151,10 @@ export default function EarningsTab({
     updateEarningsState(updatedEarnings);
   };
 
+  const handleUpdateModules = (earningId: string, selectedModules: string[]) => {
+    handleUpdateEarning(earningId, 'modules', selectedModules);
+  };
+
   // Quick increment/decrement for actual output piece counts
   const handleAdjustOutput = (earningId: string, delta: number) => {
     if (!canEditEarnings) return;
@@ -426,9 +430,10 @@ export default function EarningsTab({
         </div>
 
         <div className="overflow-x-auto rounded-xl border border-slate-200">
-          <table className="w-full min-w-[700px] text-left text-xs border-collapse">
+          <table className="w-full min-w-[820px] text-left text-xs border-collapse">
             <thead>
               <tr className="bg-slate-100 text-indigo-800 font-bold uppercase text-[10px] tracking-wider border-b border-slate-200">
+                <th className="p-3">Modules</th>
                 <th className="p-3">Style Code / Name</th>
                 <th className="p-3 text-right">CM Contract Price</th>
                 <th className="p-3 text-right">Target Planned Qty</th>
@@ -462,6 +467,24 @@ export default function EarningsTab({
 
                 return (
                   <tr key={`${e.id || 'style'}_${idx}`} className="hover:bg-slate-50 transition text-slate-800">
+                    <td className="p-3 align-top bg-amber-50/30">
+                      <select
+                        multiple
+                        value={e.modules || []}
+                        onChange={(event) => handleUpdateModules(
+                          e.id,
+                          Array.from(event.target.selectedOptions, option => option.value)
+                        )}
+                        disabled={!canEditEarnings}
+                        aria-label={`Modules allocated to ${e.style}`}
+                        className="min-h-20 w-32 rounded-lg border border-amber-200 bg-white p-1 text-[10px] font-bold text-amber-950 focus:ring-2 focus:ring-amber-500 focus:outline-none disabled:opacity-70"
+                      >
+                        {Array.from({ length: 10 }, (_, moduleIndex) => {
+                          const moduleName = `Module ${moduleIndex + 1}`;
+                          return <option key={moduleName} value={moduleName}>{moduleName}</option>;
+                        })}
+                      </select>
+                    </td>
                     <td className="p-3 font-semibold text-slate-900">
                       <div className="flex items-center gap-1.5">
                         <EditableCell
@@ -474,11 +497,6 @@ export default function EarningsTab({
                           <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" title="Output Active Today" />
                         )}
                       </div>
-                      {!!e.modules?.length && (
-                        <div className="text-[10px] text-slate-500 font-mono mt-0.5">
-                          Modules: {e.modules.map((module, moduleIndex) => module ? `M${moduleIndex + 1}: ${module}` : '').filter(Boolean).join(' | ')}
-                        </div>
-                      )}
                     </td>
                     <td className="p-3 text-right">
                       <EditableCell

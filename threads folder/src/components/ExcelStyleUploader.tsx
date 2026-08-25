@@ -171,7 +171,7 @@ export default function ExcelStyleUploader({
           const modules = Array.from({ length: 10 }, (_, moduleIndex) => {
             const moduleNumber = moduleIndex + 1;
             const value = normalizedRow[`module${moduleNumber}`] ?? normalizedRow[`mod${moduleNumber}`] ?? '';
-            return String(value).trim();
+            return String(value).trim() ? `Module ${moduleNumber}` : '';
           });
 
           const rowErrors: string[] = [];
