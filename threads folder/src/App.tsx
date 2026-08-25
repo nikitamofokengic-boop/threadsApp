@@ -42,6 +42,24 @@ import {
   saveRollingBackup,
   FullSystemBackupPayload
 } from './lib/offlineStorage';
+
+function getEarningsForNewDate(dateLabel: string, existingSheets: SheetData[]): SheetData['earnings'] {
+  const targetDate = parseDateLabelToDate(dateLabel).getTime();
+  const previousSheet = [...existingSheets]
+    .filter(s => parseDateLabelToDate(s.label).getTime() < targetDate)
+    .sort((a, b) => parseDateLabelToDate(a.label).getTime() - parseDateLabelToDate(b.label).getTime())
+    .at(-1);
+
+  if (!previousSheet || getPayCycleForDate(previousSheet.label).id !== getPayCycleForDate(dateLabel).id) {
+    return [];
+  }
+
+  return previousSheet.earnings.map(earning => ({
+    ...earning,
+    qtyProduced: 0
+  }));
+}
+
 import { 
   LogOut, 
   Printer, 
@@ -1142,13 +1160,10 @@ export default function App() {
     }
 
     saveToHistory();
-    const lastSheet = sheets[sheets.length - 1];
-    
     // Copy the department roster structures from last sheet, but zero out daily counts or duplicate them
+    const lastSheet = sheets[sheets.length - 1];
     const copiedDepts = JSON.parse(JSON.stringify(lastSheet.departments));
-    const copiedEarnings = JSON.parse(JSON.stringify(lastSheet.earnings));
-    // Zero out quantity produced for clean slate on new date
-    copiedEarnings.forEach((e: any) => e.qtyProduced = 0);
+    const copiedEarnings = getEarningsForNewDate(formatted, sheets);
 
     const newSheet: SheetData = {
       id: `sheet_${Date.now()}`,
@@ -1190,10 +1205,10 @@ export default function App() {
           id: `sheet_${normImported.replace(/\s+/g, '_').toLowerCase()}_${Date.now()}`,
           label: normImported,
           departments: updatedDepts,
-          earnings: buildDefaultEarnings(sheets.length),
+          earnings: getEarningsForNewDate(normImported, sheets),
           sahData: []
         };
-        newSheet.sahData = buildDefaultSah(newSheet.earnings);
+        newSheet.sahData = newSheet.earnings.length > 0 ? buildDefaultSah(newSheet.earnings) : [];
         const nextSheets = sortSheetsChronologically(ensureAllPayCycleDates([...sheets, newSheet]));
         setSheets(nextSheets);
         const matchingNewSheet = nextSheets.find(s => extractAndNormalizeDate(s.label) === normImported);
@@ -1237,10 +1252,10 @@ export default function App() {
           id: `sheet_${normDate.replace(/\s+/g, '_').toLowerCase()}_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
           label: normDate,
           departments: departments,
-          earnings: buildDefaultEarnings(updatedSheetsList.length),
+          earnings: getEarningsForNewDate(normDate, updatedSheetsList),
           sahData: []
         };
-        newSheet.sahData = buildDefaultSah(newSheet.earnings);
+        newSheet.sahData = newSheet.earnings.length > 0 ? buildDefaultSah(newSheet.earnings) : [];
         updatedSheetsList.push(newSheet);
       }
     });

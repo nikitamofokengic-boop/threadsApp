@@ -180,10 +180,14 @@ export default function EarningsTab({
   };
 
   const handleApplyExcelStyles = (importedStyles: StyleEarning[], mode: 'replace' | 'merge') => {
-    const uniqueImported = importedStyles.map((item, idx) => ({
-      ...item,
-      id: `imported_${Date.now()}_${idx}_${Math.random().toString(36).slice(2, 6)}`
-    }));
+    const uniqueImported = importedStyles.map((item, idx) => {
+      const existing = sheet.earnings.find(e => e.style.trim().toUpperCase() === item.style.trim().toUpperCase());
+      return {
+        ...item,
+        id: existing?.id || `imported_${Date.now()}_${idx}_${Math.random().toString(36).slice(2, 6)}`,
+        qtyProduced: existing?.qtyProduced || 0
+      };
+    });
     const updated = mode === 'replace' 
       ? uniqueImported 
       : [...sheet.earnings, ...uniqueImported];
@@ -227,7 +231,7 @@ export default function EarningsTab({
               className="w-4 h-4 accent-indigo-500 rounded cursor-pointer"
             />
             <label htmlFor="syncCycleCheckbox" className="text-xs font-bold text-white cursor-pointer select-none">
-              Sync styles across all shift dates in {payCycleInfo.startMonthName.slice(0,3)}/{payCycleInfo.endMonthName.slice(0,3)} cycle
+              Sync styles, CM prices & targets across all dates in this pay cycle
             </label>
           </div>
         )}

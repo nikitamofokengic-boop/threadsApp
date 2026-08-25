@@ -42,28 +42,24 @@ export default function ExcelStyleUploader({
         "Style Code": "NWJ1492/A",
         "CM Price": 12.50,
         "Planned Target Qty": 600,
-        "Actual Qty Produced": 520,
         "SMV (Minutes)": 8.5
       },
       {
         "Style Code": "NWJ1501/B",
         "CM Price": 14.00,
         "Planned Target Qty": 450,
-        "Actual Qty Produced": 410,
         "SMV (Minutes)": 10.2
       },
       {
         "Style Code": "TSH2024/M",
         "CM Price": 8.75,
         "Planned Target Qty": 1000,
-        "Actual Qty Produced": 950,
         "SMV (Minutes)": 5.0
       },
       {
         "Style Code": "DRS3088/C",
         "CM Price": 18.20,
         "Planned Target Qty": 350,
-        "Actual Qty Produced": 300,
         "SMV (Minutes)": 14.0
       }
     ];
@@ -75,7 +71,6 @@ export default function ExcelStyleUploader({
       { wch: 18 }, // Style Code
       { wch: 12 }, // CM Price
       { wch: 20 }, // Planned Target Qty
-      { wch: 20 }, // Actual Qty Produced
       { wch: 15 }  // SMV
     ];
 
@@ -182,7 +177,7 @@ export default function ExcelStyleUploader({
             style: styleStr || `Style #${idx + 1}`,
             cmPrice: cmPriceNum,
             plannedQty: plannedQtyNum > 0 ? plannedQtyNum : (qtyProducedNum > 0 ? Math.round(qtyProducedNum * 1.15) : 500),
-            qtyProduced: qtyProducedNum,
+            qtyProduced: 0,
             smv: smvNum,
             isValid: rowErrors.length === 0,
             errors: rowErrors
@@ -263,10 +258,10 @@ export default function ExcelStyleUploader({
                 </div>
                 <div>
                   <h3 className="text-sm font-black text-slate-900 uppercase tracking-wider">
-                    Import Styles, CM Prices & Planned Targets
+                    Import Styles, CM Prices & Pay-Cycle Targets
                   </h3>
                   <p className="text-xs text-slate-500">
-                    Upload an Excel (.xlsx, .xls) or CSV file with style specs, prices, targets, and output.
+                    Upload an Excel (.xlsx, .xls) or CSV file with style specs, CM prices, and pay-cycle target quantities.
                   </p>
                 </div>
               </div>
