@@ -339,15 +339,14 @@ export function getRollingBackups(): RollingBackup[] {
  * Determine if local data is strictly newer than cloud data
  */
 export function isLocalNewerThanCloud(cloudLastUpdatedTs: number): boolean {
-  const localTs = getLastLocalModifiedTs();
   const pending = getPendingSync();
-  
-  if (pending && pending.workspace) {
-    return true; // We have unpushed local changes
+
+  if (pending?.workspace) {
+    return pending.workspace.lastUpdated > (cloudLastUpdatedTs || 0) + 500;
   }
 
-  // If local timestamp is strictly newer than cloud by at least 500ms
-  return (localTs - (cloudLastUpdatedTs || 0)) > 500;
+  // A persisted timestamp without a pending payload is only a historical marker.
+  return false;
 }
 
 /**

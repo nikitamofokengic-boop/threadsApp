@@ -38,7 +38,6 @@ import {
   flushPendingSyncToCloud, 
   clearPendingSync, 
   recordPendingSync, 
-  isLocalNewerThanCloud, 
   saveRollingBackup,
   FullSystemBackupPayload
 } from './lib/offlineStorage';
@@ -452,12 +451,6 @@ export default function App() {
       }
     }, 15000);
 
-    // BeforeUnload hook: ensure local modification timestamp is marked
-    const handleBeforeUnload = () => {
-      setLastLocalModifiedTs(Date.now());
-    };
-    window.addEventListener('beforeunload', handleBeforeUnload);
-
     // Cross-tab BroadcastChannel for 0ms instant multi-tab sync
     try {
       if (typeof BroadcastChannel !== 'undefined') {
@@ -500,7 +493,6 @@ export default function App() {
       window.removeEventListener('offline', handleOffline);
       document.removeEventListener('visibilitychange', handleVisibilityOrFocus);
       window.removeEventListener('focus', handleVisibilityOrFocus);
-      window.removeEventListener('beforeunload', handleBeforeUnload);
       if (broadcastChannelRef.current) {
         broadcastChannelRef.current.close();
       }
@@ -641,8 +633,10 @@ export default function App() {
         const data = snapshot.data();
         const updateTimestamp = data?.lastUpdated || 0;
 
-        // Conflict Resolution: If we have pending local changes or local is strictly newer than cloud, do not overwrite!
-        if (hasPendingChanges() || isLocalNewerThanCloud(updateTimestamp)) {
+        const pendingWorkspace = getPendingSync()?.workspace;
+
+        // Never discard a pending offline workspace. Retry it so the edit reaches the shared cloud document.
+        if (pendingWorkspace) {
           flushPendingSyncToCloud().then(res => {
             if (res.success) {
               setHasPendingSync(false);
@@ -652,7 +646,7 @@ export default function App() {
           return;
         }
 
-        if (data && Array.isArray(data.sheets) && data.sheets.length > 0) {
+        if (data && Array.isArray(data.sheets)) {
           const fullSheets = sortSheetsChronologically(ensureAllPayCycleDates(data.sheets));
           setSheets(fullSheets);
           localStorage.setItem(STORAGE_KEYS.SHEETS, JSON.stringify(fullSheets));
@@ -665,7 +659,7 @@ export default function App() {
             setPayrollParams(data.payrollParams);
             localStorage.setItem(STORAGE_KEYS.PAYROLL, JSON.stringify(data.payrollParams));
           }
-          if (Array.isArray(data.subsidiaries) && data.subsidiaries.length > 0) {
+          if (Array.isArray(data.subsidiaries)) {
             setSubsidiaries(data.subsidiaries);
             localStorage.setItem(STORAGE_KEYS.SUBSIDIARIES, JSON.stringify(data.subsidiaries));
           }
@@ -673,7 +667,7 @@ export default function App() {
             setSubsidiaryAllocations(data.subsidiaryAllocations);
             localStorage.setItem(STORAGE_KEYS.SUBSIDIARY_ALLOCATIONS, JSON.stringify(data.subsidiaryAllocations));
           }
-          if (Array.isArray(data.subsidyPrograms) && data.subsidyPrograms.length > 0) {
+          if (Array.isArray(data.subsidyPrograms)) {
             setSubsidyPrograms(data.subsidyPrograms);
             localStorage.setItem(STORAGE_KEYS.SUBSIDY_PROGRAMS, JSON.stringify(data.subsidyPrograms));
           }
@@ -781,7 +775,7 @@ export default function App() {
       if (workspaceSnap && workspaceSnap.exists()) {
         const data = workspaceSnap.data();
         if (hasPendingChanges() || getLastLocalModifiedTs() > localSyncStartedAt) return;
-        if (data && Array.isArray(data.sheets) && data.sheets.length > 0) {
+        if (data && Array.isArray(data.sheets)) {
           const fullSheets = sortSheetsChronologically(ensureAllPayCycleDates(data.sheets));
           setSheets(fullSheets);
           localStorage.setItem(STORAGE_KEYS.SHEETS, JSON.stringify(fullSheets));
