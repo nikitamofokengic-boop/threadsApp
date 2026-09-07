@@ -281,7 +281,7 @@ export function getDayInfo(dateLabel: string, shiftHours?: number): ShiftDayInfo
   let monthIdx = 6;
   let year = 2026;
 
-  const standardMatch = upper.match(/(\d{1,2})\s+([A-Z]{3,})\s+(\d{4})/);
+  const standardMatch = upper.match(/(\d{1,2})\s+([A-Z]{3,12})\.?\s+(\d{4})/);
   if (standardMatch) {
     dayNum = parseInt(standardMatch[1], 10);
     const mStr = standardMatch[2];
