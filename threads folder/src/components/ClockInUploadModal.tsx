@@ -448,7 +448,7 @@ export default function ClockInUploadModal({
       for (let c = 0; c < Math.min(matrix[r].length, 12); c++) {
         const cellText = parseStr(matrix[r][c]);
         if (cellText && cellText.length >= 4) {
-          const norm = extractAndNormalizeDate(cellText, '');
+          const norm = extractAndNormalizeDate(matrix[r][c], '');
           if (norm && norm.length >= 8) {
             detectedDate = norm;
             break;
@@ -590,8 +590,8 @@ export default function ClockInUploadModal({
 
       let rowDate = detectedDate;
       if (dateIdx !== -1 && matrix[r][dateIdx]) {
-        const rawRowDate = parseStr(matrix[r][dateIdx]);
-        if (rawRowDate && rawRowDate.length >= 3) {
+        const rawRowDate = matrix[r][dateIdx];
+        if (rawRowDate !== null && rawRowDate !== undefined && String(rawRowDate).trim().length >= 3) {
           rowDate = extractAndNormalizeDate(rawRowDate, detectedDate);
         }
       }
@@ -701,8 +701,8 @@ export default function ClockInUploadModal({
       } else {
         // Sort parsed dates chronologically
         multiDateEntries.sort((a, b) => {
-          const tA = new Date(extractAndNormalizeDate(a.dateLabel)).getTime();
-          const tB = new Date(extractAndNormalizeDate(b.dateLabel)).getTime();
+          const tA = parseDateLabelToDate(a.dateLabel).getTime();
+          const tB = parseDateLabelToDate(b.dateLabel).getTime();
           return tA - tB;
         });
 
