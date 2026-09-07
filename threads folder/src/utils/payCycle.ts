@@ -664,6 +664,8 @@ export function calculateSheetLaborCostBreakdown(sheet: SheetData) {
     otHeadcountTotal,
     permBaseCost,
     tempBaseCost,
+    permLaborCost: permBaseCost,
+    tempLaborCost: tempBaseCost,
     baseLaborCost,
     otCost,
     totalLaborCost,
