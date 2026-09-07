@@ -2,6 +2,8 @@
 
 This project is fully structured to compile into an Android APK (`.apk`) file with complete offline storage, full hardware acceleration, file upload support, and real-time Cloud Firestore sync.
 
+Android devices use the web bundle packaged inside the APK. After changing the app, run `npm run build:android`, build a new APK, and install that APK on each device. The Android `versionCode` must increase for every release so Android recognizes it as an update.
+
 ---
 
 ## 🚀 Method 1: Instant 1-Click Cloud Build with GitHub Actions (Recommended)
