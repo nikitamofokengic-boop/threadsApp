@@ -1,0 +1,53 @@
+name: Build Android APK
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK packages
+        run: sdkmanager "platforms;android-34" "build-tools;34.0.0"
+
+      - name: Install JavaScript dependencies
+        working-directory: threads folder
+        run: npm install
+
+      - name: Build web assets for Android
+        working-directory: threads folder
+        run: npm run build:android
+
+      - name: Build APK
+        working-directory: threads folder/android
+        run: gradle assembleDebug --no-daemon
+
+      - name: Publish APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: threads-factory-app
+          path: threads folder/android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
