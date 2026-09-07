@@ -279,13 +279,16 @@ export function getDayInfo(dateLabel: string, shiftHours?: number): ShiftDayInfo
   const upper = dateLabel.trim().toUpperCase();
   let dayNum = 21;
   let monthIdx = 6;
-  let year = 2026;
+  let year = new Date().getFullYear();
 
-  const standardMatch = upper.match(/(\d{1,2})\s+([A-Z]{3,12})\.?\s+(\d{4})/);
+  const standardMatch = upper.match(/(\d{1,2})\s+([A-Z]{3,12})\.?(?:\s+(\d{2,4}))?/);
   if (standardMatch) {
     dayNum = parseInt(standardMatch[1], 10);
     const mStr = standardMatch[2];
-    year = parseInt(standardMatch[3], 10);
+    if (standardMatch[3]) {
+      year = parseInt(standardMatch[3], 10);
+      if (year < 100) year += 2000;
+    }
     const foundIdx = MONTHS_FULL.findIndex(m => m.startsWith(mStr)) !== -1 
       ? MONTHS_FULL.findIndex(m => m.startsWith(mStr))
       : MONTHS_SHORT.findIndex(m => m.startsWith(mStr));
@@ -551,7 +554,7 @@ export function extractAndNormalizeDate(raw: any, fallbackDate: string = '21 JUL
     const foundIdx = monthIndex(mStr);
     if (foundIdx !== -1 && day >= 1 && day <= 31) {
       const yearMatch = upper.match(/\b(\d{4})\b/);
-      const year = yearMatch ? parseInt(yearMatch[1], 10) : parseDateLabelToDate(fallbackDate).getFullYear();
+      const year = yearMatch ? parseInt(yearMatch[1], 10) : new Date().getFullYear();
       if (isValidDateParts(day, foundIdx, year)) return `${day} ${MONTHS_FULL[foundIdx]} ${year}`;
     }
   }
@@ -564,7 +567,7 @@ export function extractAndNormalizeDate(raw: any, fallbackDate: string = '21 JUL
     const foundIdx = monthIndex(mStr);
     if (foundIdx !== -1 && day >= 1 && day <= 31) {
       const yearMatch = upper.match(/\b(\d{4})\b/);
-      const year = yearMatch ? parseInt(yearMatch[1], 10) : parseDateLabelToDate(fallbackDate).getFullYear();
+      const year = yearMatch ? parseInt(yearMatch[1], 10) : new Date().getFullYear();
       if (isValidDateParts(day, foundIdx, year)) return `${day} ${MONTHS_FULL[foundIdx]} ${year}`;
     }
   }
@@ -576,7 +579,7 @@ export function extractAndNormalizeDate(raw: any, fallbackDate: string = '21 JUL
     const monthIdx = parseInt(numPartialMatch[3], 10) - 1;
     if (monthIdx >= 0 && monthIdx < 12 && day >= 1 && day <= 31) {
       const yearMatch = upper.match(/\b(\d{4})\b/);
-      const year = yearMatch ? parseInt(yearMatch[1], 10) : parseDateLabelToDate(fallbackDate).getFullYear();
+      const year = yearMatch ? parseInt(yearMatch[1], 10) : new Date().getFullYear();
       if (isValidDateParts(day, monthIdx, year)) return `${day} ${MONTHS_FULL[monthIdx]} ${year}`;
     }
   }
