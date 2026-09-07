@@ -25,6 +25,7 @@ function copyRecursive(src, dest) {
 
 if (fs.existsSync(srcDir)) {
   console.log(`Copying web bundle from ${srcDir} to ${destDir}...`);
+  fs.rmSync(destDir, { recursive: true, force: true });
   copyRecursive(srcDir, destDir);
   console.log('Successfully bundled web assets for Android APK build!');
 } else {
