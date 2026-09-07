@@ -30,6 +30,8 @@ export interface RolePermissions {
   canManageRoles?: boolean; // Admin permission to manage roles and grant permissions
 }
 
+export type AppTabId = 'summary' | 'monthly_summary' | 'headcount' | 'subsidies' | 'earnings' | 'payroll' | 'overheads' | 'changes' | 'admin';
+
 export interface EmployeeRole {
   id: string;
   title: string;

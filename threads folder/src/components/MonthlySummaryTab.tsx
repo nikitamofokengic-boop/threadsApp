@@ -48,9 +48,14 @@ interface MonthlySummaryTabProps {
   sheets: SheetData[];
   overheads: Overheads;
   currency: string;
+  enabledTabs?: string[];
 }
 
-export default function MonthlySummaryTab({ sheets, overheads, currency }: MonthlySummaryTabProps) {
+export default function MonthlySummaryTab({ sheets, overheads, currency, enabledTabs = [] }: MonthlySummaryTabProps) {
+  const earningsEnabled = enabledTabs.length === 0 || enabledTabs.includes('earnings');
+  const headcountEnabled = enabledTabs.length === 0 || enabledTabs.includes('headcount');
+  const sahEnabled = enabledTabs.length === 0 || enabledTabs.includes('sah');
+  const overheadsEnabled = enabledTabs.length === 0 || enabledTabs.includes('overheads');
   // Pay cycles generated dynamically from sheets
   const payCycles = getAllPayCyclesFromSheets(sheets || []);
   
@@ -79,7 +84,7 @@ export default function MonthlySummaryTab({ sheets, overheads, currency }: Month
     .sort((a, b) => parseDateLabelToDate(a.label).getTime() - parseDateLabelToDate(b.label).getTime());
 
   // Amortized daily overhead (assumes 22 working days per month)
-  const totalMonthlyOH = overheads ? (overheads.rent + overheads.utilities + overheads.admin + overheads.other) : 0;
+  const totalMonthlyOH = overheadsEnabled && overheads ? (overheads.rent + overheads.utilities + overheads.admin + overheads.other) : 0;
   const overheadDaily = totalMonthlyOH / 22;
 
   // 1. Compute Expected Revenue & Planned Target Volume directly from Style Revenue specifications
@@ -91,7 +96,7 @@ export default function MonthlySummaryTab({ sheets, overheads, currency }: Month
       const sheetsInC = (sheets || []).filter(s => isDateInPayCycle(s.label, cycle.id));
       if (sheetsInC.length > 0) {
         const refEarnings = sheetsInC[0].earnings;
-        refEarnings.forEach(e => {
+        if (earningsEnabled) refEarnings.forEach(e => {
           const defaultPlanned = e.plannedQty ?? Math.round(e.qtyProduced > 0 ? e.qtyProduced * 1.15 : 500);
           const plannedQty = e.plannedQty ?? defaultPlanned;
           totalPlannedUnits += plannedQty;
@@ -102,7 +107,7 @@ export default function MonthlySummaryTab({ sheets, overheads, currency }: Month
   } else {
     if (cycleSheets.length > 0) {
       const refEarnings = cycleSheets[0].earnings;
-      refEarnings.forEach(e => {
+      if (earningsEnabled) refEarnings.forEach(e => {
         const defaultPlanned = e.plannedQty ?? Math.round(e.qtyProduced > 0 ? e.qtyProduced * 1.15 : 500);
         const plannedQty = e.plannedQty ?? defaultPlanned;
         totalPlannedUnits += plannedQty;
@@ -125,7 +130,7 @@ export default function MonthlySummaryTab({ sheets, overheads, currency }: Month
     let dayUnits = 0;
     let dayPlannedUnits = 0;
 
-    s.earnings.forEach(e => {
+    if (earningsEnabled) s.earnings.forEach(e => {
       const defaultPlanned = e.plannedQty ?? Math.round(e.qtyProduced > 0 ? e.qtyProduced * 1.15 : 500);
       dayUnits += e.qtyProduced;
       dayPlannedUnits += defaultPlanned;
@@ -134,7 +139,7 @@ export default function MonthlySummaryTab({ sheets, overheads, currency }: Month
     });
 
     // 2. Labour Cost
-    const sBreakdown = calculateSheetLaborCostBreakdown(s);
+    const sBreakdown = headcountEnabled ? calculateSheetLaborCostBreakdown(s) : { totalLaborCost: 0, totalHeadcount: 0 };
     const dayWages = sBreakdown.totalLaborCost;
     const dayHeadcount = sBreakdown.totalHeadcount;
 
@@ -142,7 +147,7 @@ export default function MonthlySummaryTab({ sheets, overheads, currency }: Month
     const stdHrs = s.standardShiftHours || 9.0;
     let daySahEarned = 0;
     let daySahCapacity = 0;
-    (s.sahData || []).forEach(r => {
+    if (sahEnabled) (s.sahData || []).forEach(r => {
       daySahEarned += (r.output * r.smv) / 60;
       daySahCapacity += r.mos * (r.shiftHours || stdHrs);
     });
@@ -210,7 +215,7 @@ export default function MonthlySummaryTab({ sheets, overheads, currency }: Month
     let cycleActualRev = 0;
     let cycleActualUnits = 0;
     sheetsInCycle.forEach(s => {
-      s.earnings.forEach(e => {
+      if (earningsEnabled) s.earnings.forEach(e => {
         cycleActualUnits += e.qtyProduced;
         cycleActualRev += (e.qtyProduced * e.cmPrice);
       });

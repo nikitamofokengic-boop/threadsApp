@@ -16,6 +16,7 @@ interface SummaryTabProps {
   canEditEarnings?: boolean;
   onOpenSubsidiesPanel?: () => void;
   allocations?: SubsidiaryAllocation[];
+  enabledTabs?: string[];
 }
 
 export default function SummaryTab({
@@ -28,7 +29,8 @@ export default function SummaryTab({
   onUpdateAllSheets,
   canEditEarnings = true,
   onOpenSubsidiesPanel,
-  allocations = []
+  allocations = [],
+  enabledTabs = []
 }: SummaryTabProps) {
   const [summaryMode, setSummaryMode] = useState<'daily' | 'monthly'>('daily');
   const [selectedCycle, setSelectedCycle] = useState<string>('JUL_AUG_2026');
@@ -69,7 +71,12 @@ export default function SummaryTab({
   };
 
   // --- DAILY CALCULATIONS ---
-  const sheetBreakdown = calculateSheetLaborCostBreakdown(sheet);
+  const headcountEnabled = enabledTabs.length === 0 || enabledTabs.includes('headcount');
+  const earningsEnabled = enabledTabs.length === 0 || enabledTabs.includes('earnings');
+  const sahEnabled = enabledTabs.length === 0 || enabledTabs.includes('sah');
+  const sheetBreakdown = headcountEnabled ? calculateSheetLaborCostBreakdown(sheet) : {
+    permCount: 0, tempCount: 0, totalLaborCost: 0, otCost: 0, baseLaborCost: 0
+  };
   const totalPerm = sheetBreakdown.permCount;
   const totalTemp = sheetBreakdown.tempCount;
   const totalLabourCost = sheetBreakdown.totalLaborCost;
@@ -77,20 +84,20 @@ export default function SummaryTab({
   const baseLabourCost = sheetBreakdown.baseLaborCost;
 
   const totalHeadcount = totalPerm + totalTemp;
-  const earningsTotal = sheet.earnings.reduce((sum, e) => sum + (e.qtyProduced * e.cmPrice), 0);
-  const expectedEarningsTotal = sheet.earnings.reduce((sum, e) => {
+  const earningsTotal = earningsEnabled ? sheet.earnings.reduce((sum, e) => sum + (e.qtyProduced * e.cmPrice), 0) : 0;
+  const expectedEarningsTotal = earningsEnabled ? sheet.earnings.reduce((sum, e) => {
     const planned = e.plannedQty ?? Math.round(e.qtyProduced > 0 ? e.qtyProduced * 1.15 : 500);
     return sum + (planned * e.cmPrice);
-  }, 0);
-  const plannedUnitsTotal = sheet.earnings.reduce((sum, e) => sum + (e.plannedQty ?? Math.round(e.qtyProduced > 0 ? e.qtyProduced * 1.15 : 500)), 0);
-  const totalUnits = sheet.earnings.reduce((sum, e) => sum + e.qtyProduced, 0);
+  }, 0) : 0;
+  const plannedUnitsTotal = earningsEnabled ? sheet.earnings.reduce((sum, e) => sum + (e.plannedQty ?? Math.round(e.qtyProduced > 0 ? e.qtyProduced * 1.15 : 500)), 0) : 0;
+  const totalUnits = earningsEnabled ? sheet.earnings.reduce((sum, e) => sum + e.qtyProduced, 0) : 0;
   const dailyNet = earningsTotal - totalLabourCost - overheadDaily;
   
   // SAH Efficiency calculation based on standard shift hours (defaults to 9.0 hours)
   const stdHours = sheet.standardShiftHours || 9.0;
   const sahList = sheet.sahData || [];
-  const dailySahEarned = sahList.reduce((sum, r) => sum + ((r.output * r.smv) / 60), 0);
-  const dailySahCapacity = sahList.reduce((sum, r) => sum + (r.mos * (r.shiftHours || stdHours)), 0);
+  const dailySahEarned = sahEnabled ? sahList.reduce((sum, r) => sum + ((r.output * r.smv) / 60), 0) : 0;
+  const dailySahCapacity = sahEnabled ? sahList.reduce((sum, r) => sum + (r.mos * (r.shiftHours || stdHours)), 0) : 0;
   const dailySahEfficiency = dailySahCapacity > 0 ? (dailySahEarned / dailySahCapacity * 100) : 0;
 
   const tempPct = totalHeadcount ? (totalTemp / totalHeadcount * 100).toFixed(1) : '0';
@@ -102,15 +109,15 @@ export default function SummaryTab({
   const sortedDepts = [...sheet.departments]
     .map(d => {
       const hc = d.roles.reduce((s, r) => s + r.perm + r.temp, 0);
-      const baseCost = d.roles.reduce((s, r) => s + ((r.cost && r.cost > 0) ? r.cost : (r.perm * r.permWage)) + (r.temp * r.tempWage), 0);
+      const baseCost = headcountEnabled ? d.roles.reduce((s, r) => s + ((r.cost && r.cost > 0) ? r.cost : (r.perm * r.permWage)) + (r.temp * r.tempWage), 0) : 0;
       const otHours = sheet.shiftOtHours || 0;
       const dayInfo = getDayInfo(sheet.label, 9.0 + otHours);
       const otMultiplier = (dayInfo.isWeekend || dayInfo.isHoliday) ? 2.0 : 1.5;
-      const otCost = d.roles.reduce((s, r) => {
+      const otCost = headcountEnabled ? d.roles.reduce((s, r) => {
         const pHourly = r.permWage > 0 ? r.permWage / 9.0 : 0;
         const tHourly = r.tempWage > 0 ? r.tempWage / 9.0 : 0;
         return s + (r.perm * otHours * pHourly * otMultiplier) + (r.temp * otHours * tHourly * otMultiplier);
-      }, 0);
+      }, 0) : 0;
       const cost = baseCost + otCost;
       return { ...d, totalHc: hc, totalCost: cost, baseCost, otCost };
     })
@@ -153,24 +160,24 @@ export default function SummaryTab({
   let monthlySahCapacity = 0;
 
   const dailyCycleBreakdown = cycleSheets.map(s => {
-    const sBreakdown = calculateSheetLaborCostBreakdown(s);
+    const sBreakdown = headcountEnabled ? calculateSheetLaborCostBreakdown(s) : { totalLaborCost: 0, totalHeadcount: 0 };
     const dayWages = sBreakdown.totalLaborCost;
     const dayHc = sBreakdown.totalHeadcount;
 
-    const dayEarnings = s.earnings.reduce((sum, e) => sum + (e.qtyProduced * e.cmPrice), 0);
-    const dayExpectedEarnings = s.earnings.reduce((sum, e) => {
+    const dayEarnings = earningsEnabled ? s.earnings.reduce((sum, e) => sum + (e.qtyProduced * e.cmPrice), 0) : 0;
+    const dayExpectedEarnings = earningsEnabled ? s.earnings.reduce((sum, e) => {
       const planned = e.plannedQty ?? Math.round(e.qtyProduced > 0 ? e.qtyProduced * 1.15 : 500);
       return sum + (planned * e.cmPrice);
-    }, 0);
-    const dayPlannedUnits = s.earnings.reduce((sum, e) => sum + (e.plannedQty ?? Math.round(e.qtyProduced > 0 ? e.qtyProduced * 1.15 : 500)), 0);
-    const dayUnits = s.earnings.reduce((sum, e) => sum + e.qtyProduced, 0);
+    }, 0) : 0;
+    const dayPlannedUnits = earningsEnabled ? s.earnings.reduce((sum, e) => sum + (e.plannedQty ?? Math.round(e.qtyProduced > 0 ? e.qtyProduced * 1.15 : 500)), 0) : 0;
+    const dayUnits = earningsEnabled ? s.earnings.reduce((sum, e) => sum + e.qtyProduced, 0) : 0;
     const dayNet = dayEarnings - dayWages - overheadDaily;
 
     // SAH for sheet day
     const sStdH = s.standardShiftHours || 9.0;
     let sSahEarned = 0;
     let sSahCapacity = 0;
-    (s.sahData || []).forEach(r => {
+    if (sahEnabled) (s.sahData || []).forEach(r => {
       sSahEarned += (r.output * r.smv) / 60;
       sSahCapacity += r.mos * (r.shiftHours || sStdH);
     });

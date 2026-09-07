@@ -29,6 +29,8 @@ interface AdminTabProps {
   rolePermissionsMap: Record<string, RolePermissions>;
   onUpdateRolePermissions: (newMap: Record<string, RolePermissions>) => void;
   onUpdateUsersList: (newUsers: (User & { password?: string })[]) => void;
+  disabledTabs: string[];
+  onUpdateDisabledTabs: (tabs: string[]) => void;
   firebaseConnected: boolean;
 }
 
@@ -52,6 +54,8 @@ export default function AdminTab({
   rolePermissionsMap,
   onUpdateRolePermissions,
   onUpdateUsersList,
+  disabledTabs,
+  onUpdateDisabledTabs,
   firebaseConnected
 }: AdminTabProps) {
   if (currentUser.role !== 'super_admin') {
@@ -220,6 +224,15 @@ export default function AdminTab({
 
     onUpdateRolePermissions(updatedMap);
     showFeedback(`Updated tab access for role: ${activeRolePerms.roleName || selectedRoleId}`);
+  };
+
+  const handleToggleDisabledTab = (tabId: string) => {
+    if (tabId === 'summary' || tabId === 'admin') return;
+    const nextTabs = disabledTabs.includes(tabId)
+      ? disabledTabs.filter(id => id !== tabId)
+      : [...disabledTabs, tabId];
+    onUpdateDisabledTabs(nextTabs);
+    showFeedback(`${ALL_TAB_KEYS.find(tab => tab.id === tabId)?.label || tabId} ${nextTabs.includes(tabId) ? 'deactivated' : 'activated'} globally.`);
   };
 
   // Toggle Single Permission Boolean
@@ -694,6 +707,31 @@ export default function AdminTab({
                       }`}>
                         {isAllowed ? '✓' : ''}
                       </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="space-y-3 pt-2 border-t border-pink-100">
+              <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-amber-500" /> Global Tab Availability
+              </h4>
+              <p className="text-[11px] text-slate-500">Deactivate a module for the whole workspace. Disabled modules are removed from navigation and excluded from operational and monthly summaries.</p>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {ALL_TAB_KEYS.filter(tab => tab.id !== 'summary' && tab.id !== 'admin').map((tab) => {
+                  const isEnabled = !disabledTabs.includes(tab.id);
+                  return (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      onClick={() => handleToggleDisabledTab(tab.id)}
+                      className={`p-3 rounded-2xl border text-left transition cursor-pointer flex items-center justify-between gap-2 ${
+                        isEnabled ? 'bg-emerald-50 border-emerald-300 text-emerald-900' : 'bg-slate-100 border-slate-300 text-slate-500'
+                      }`}
+                    >
+                      <span className="text-xs font-bold">{tab.label}</span>
+                      {isEnabled ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
                     </button>
                   );
                 })}

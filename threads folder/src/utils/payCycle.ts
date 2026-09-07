@@ -368,11 +368,12 @@ export function calculateShiftOvertimeBreakdown(
   const hourlyRate = dailyWage > 0 ? dailyWage / 9.0 : 0;
   
   if (isWeekendOrHoliday) {
-    const otCost = dailyWage * 2.0 * (shiftHours / 9.0);
+    const weekendOtHours = Math.max(0, shiftHours);
+    const otCost = weekendOtHours * hourlyRate * 2.0;
     return {
       regularHours: 0,
       weekdayOtHours: 0,
-      weekendOtHours: shiftHours,
+      weekendOtHours,
       regularCost: 0,
       weekdayOtCost: 0,
       weekendOtCost: otCost,
@@ -447,7 +448,7 @@ export function extractAndNormalizeDate(raw: any, fallbackDate: string = '21 JUL
       const d = raw.getDate();
       const mIdx = raw.getMonth();
       const y = raw.getFullYear();
-      if (mIdx >= 0 && mIdx < 12 && y >= 2020 && y <= 2035) {
+      if (mIdx >= 0 && mIdx < 12 && y >= 1900 && y <= 2200) {
         return `${d} ${MONTHS_FULL[mIdx]} ${y}`;
       }
     }
@@ -462,7 +463,7 @@ export function extractAndNormalizeDate(raw: any, fallbackDate: string = '21 JUL
         const d = parsedDate.getDate();
         const mIdx = parsedDate.getMonth();
         const y = parsedDate.getFullYear();
-        if (mIdx >= 0 && mIdx < 12 && y >= 2020 && y <= 2035) {
+        if (mIdx >= 0 && mIdx < 12 && y >= 1900 && y <= 2200) {
           return `${d} ${MONTHS_FULL[mIdx]} ${y}`;
         }
       }
@@ -473,7 +474,22 @@ export function extractAndNormalizeDate(raw: any, fallbackDate: string = '21 JUL
   if (!str) return fallbackDate;
   const upper = str.toUpperCase();
 
-  const MONTH_PATTERN = '(JANUARY|FEBRUARY|MARCH|APRIL|MAY|JUNE|JULY|AUGUST|SEPTEMBER|OCTOBER|NOVEMBER|DECEMBER|JAN|FEB|MAR|APR|JUN|JUL|AUG|SEP|OCT|NOV|DEC)';
+  // Match full names and common abbreviations such as JAN, JANU, SEPT, and SEPT.
+  // Resolution below still limits the result to one of the twelve real months.
+  const MONTH_PATTERN = '([A-Z]{3,12})\\.?';
+
+  const monthIndex = (monthText: string) => {
+    const normalized = monthText.toUpperCase().replace(/[^A-Z]/g, '');
+    if (normalized.length < 3) return -1;
+    const fullIndex = MONTHS_FULL.findIndex(month => month.startsWith(normalized));
+    return fullIndex !== -1 ? fullIndex : MONTHS_SHORT.findIndex(month => month.startsWith(normalized));
+  };
+
+  const isValidDateParts = (day: number, monthIdx: number, year: number) => {
+    if (monthIdx < 0 || monthIdx >= 12 || year < 1900 || year > 2200) return false;
+    const date = new Date(year, monthIdx, day);
+    return day >= 1 && date.getFullYear() === year && date.getMonth() === monthIdx && date.getDate() === day;
+  };
 
   // 3. DMY with Month Word: e.g. "10 AUGUST 2026", "11th AUG 2026", "Cadre Details Quantum 2 - Manpower Details (10 AUGUST 2026)"
   const dmyWordMatch = upper.match(new RegExp(`(?:^|[^0-9A-Z])(\\d{1,2})(?:ST|ND|RD|TH)?[\\s\\-_/]+${MONTH_PATTERN}[\\s\\-_/]+(\\d{2,4})(?:[^0-9A-Z]|$)`, 'i'));
@@ -483,9 +499,8 @@ export function extractAndNormalizeDate(raw: any, fallbackDate: string = '21 JUL
     let year = parseInt(dmyWordMatch[3], 10);
     if (year < 100) year += 2000;
 
-    let foundIdx = MONTHS_FULL.findIndex(m => m.startsWith(mStr));
-    if (foundIdx === -1) foundIdx = MONTHS_SHORT.findIndex(m => m.startsWith(mStr));
-    if (foundIdx !== -1 && day >= 1 && day <= 31 && year >= 2020 && year <= 2035) {
+    const foundIdx = monthIndex(mStr);
+    if (isValidDateParts(day, foundIdx, year)) {
       return `${day} ${MONTHS_FULL[foundIdx]} ${year}`;
     }
   }
@@ -498,9 +513,8 @@ export function extractAndNormalizeDate(raw: any, fallbackDate: string = '21 JUL
     let year = parseInt(mdyWordMatch[3], 10);
     if (year < 100) year += 2000;
 
-    let foundIdx = MONTHS_FULL.findIndex(m => m.startsWith(mStr));
-    if (foundIdx === -1) foundIdx = MONTHS_SHORT.findIndex(m => m.startsWith(mStr));
-    if (foundIdx !== -1 && day >= 1 && day <= 31 && year >= 2020 && year <= 2035) {
+    const foundIdx = monthIndex(mStr);
+    if (isValidDateParts(day, foundIdx, year)) {
       return `${day} ${MONTHS_FULL[foundIdx]} ${year}`;
     }
   }
@@ -511,7 +525,7 @@ export function extractAndNormalizeDate(raw: any, fallbackDate: string = '21 JUL
     const year = parseInt(isoMatch[1], 10);
     const monthIdx = parseInt(isoMatch[3], 10) - 1;
     const day = parseInt(isoMatch[4], 10);
-    if (monthIdx >= 0 && monthIdx < 12 && day >= 1 && day <= 31 && year >= 2020 && year <= 2035) {
+    if (isValidDateParts(day, monthIdx, year)) {
       return `${day} ${MONTHS_FULL[monthIdx]} ${year}`;
     }
   }
@@ -524,7 +538,7 @@ export function extractAndNormalizeDate(raw: any, fallbackDate: string = '21 JUL
     const monthIdx = parseInt(numericDmyMatch[3], 10) - 1;
     let year = parseInt(numericDmyMatch[4], 10);
     if (year < 100) year += 2000;
-    if (monthIdx >= 0 && monthIdx < 12 && day >= 1 && day <= 31 && year >= 2020 && year <= 2035) {
+    if (isValidDateParts(day, monthIdx, year)) {
       return `${day} ${MONTHS_FULL[monthIdx]} ${year}`;
     }
   }
@@ -534,10 +548,11 @@ export function extractAndNormalizeDate(raw: any, fallbackDate: string = '21 JUL
   if (partialDmyMatch) {
     const day = parseInt(partialDmyMatch[1], 10);
     const mStr = partialDmyMatch[2].toUpperCase();
-    let foundIdx = MONTHS_FULL.findIndex(m => m.startsWith(mStr));
-    if (foundIdx === -1) foundIdx = MONTHS_SHORT.findIndex(m => m.startsWith(mStr));
+    const foundIdx = monthIndex(mStr);
     if (foundIdx !== -1 && day >= 1 && day <= 31) {
-      return `${day} ${MONTHS_FULL[foundIdx]} 2026`;
+      const yearMatch = upper.match(/\b(\d{4})\b/);
+      const year = yearMatch ? parseInt(yearMatch[1], 10) : parseDateLabelToDate(fallbackDate).getFullYear();
+      if (isValidDateParts(day, foundIdx, year)) return `${day} ${MONTHS_FULL[foundIdx]} ${year}`;
     }
   }
 
@@ -546,10 +561,11 @@ export function extractAndNormalizeDate(raw: any, fallbackDate: string = '21 JUL
   if (partialMdyMatch) {
     const mStr = partialMdyMatch[1].toUpperCase();
     const day = parseInt(partialMdyMatch[2], 10);
-    let foundIdx = MONTHS_FULL.findIndex(m => m.startsWith(mStr));
-    if (foundIdx === -1) foundIdx = MONTHS_SHORT.findIndex(m => m.startsWith(mStr));
+    const foundIdx = monthIndex(mStr);
     if (foundIdx !== -1 && day >= 1 && day <= 31) {
-      return `${day} ${MONTHS_FULL[foundIdx]} 2026`;
+      const yearMatch = upper.match(/\b(\d{4})\b/);
+      const year = yearMatch ? parseInt(yearMatch[1], 10) : parseDateLabelToDate(fallbackDate).getFullYear();
+      if (isValidDateParts(day, foundIdx, year)) return `${day} ${MONTHS_FULL[foundIdx]} ${year}`;
     }
   }
 
@@ -559,7 +575,9 @@ export function extractAndNormalizeDate(raw: any, fallbackDate: string = '21 JUL
     const day = parseInt(numPartialMatch[1], 10);
     const monthIdx = parseInt(numPartialMatch[3], 10) - 1;
     if (monthIdx >= 0 && monthIdx < 12 && day >= 1 && day <= 31) {
-      return `${day} ${MONTHS_FULL[monthIdx]} 2026`;
+      const yearMatch = upper.match(/\b(\d{4})\b/);
+      const year = yearMatch ? parseInt(yearMatch[1], 10) : parseDateLabelToDate(fallbackDate).getFullYear();
+      if (isValidDateParts(day, monthIdx, year)) return `${day} ${MONTHS_FULL[monthIdx]} ${year}`;
     }
   }
 
@@ -617,7 +635,9 @@ export function calculateSheetLaborCostBreakdown(sheet: SheetData) {
       tempBaseCost += tCost;
 
       const totalPresent = r.perm + r.temp;
-      const roleOtHc = (r.otHeadcount !== undefined && r.otHeadcount >= 0) ? r.otHeadcount : 0;
+      const roleOtHc = (r.otHeadcount !== undefined && r.otHeadcount > 0)
+        ? r.otHeadcount
+        : (otHours > 0 ? totalPresent : 0);
 
       let roleOtCost = 0;
       if (r.otCost !== undefined && r.otCost >= 0) {

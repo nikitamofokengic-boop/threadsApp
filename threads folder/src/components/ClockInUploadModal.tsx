@@ -21,6 +21,7 @@ export interface ParsedDeptSummary {
   absentCount: number;
   tempCount: number;
   costVal?: number;
+  permWage?: number;
 }
 
 export interface DateParsedEntry {
@@ -143,13 +144,13 @@ function mergeParsedDepartmentsIntoSheet(
   }
 
   // Accumulate parsed summaries by mapped standard role name
-  const roleAccumulator = new Map<string, { cadre: number; perm: number; absent: number; temp: number; cost: number; hasExplicitCost: boolean }>();
+  const roleAccumulator = new Map<string, { cadre: number; perm: number; absent: number; temp: number; cost: number; permWage: number; hasExplicitCost: boolean }>();
   const unmappedSummaries: ParsedDeptSummary[] = [];
 
   parsedSummaries.forEach(p => {
     const matchedRole = findMatchingRoleName(p.deptName);
     if (matchedRole) {
-      const existing = roleAccumulator.get(matchedRole) || { cadre: 0, perm: 0, absent: 0, temp: 0, cost: 0, hasExplicitCost: false };
+      const existing = roleAccumulator.get(matchedRole) || { cadre: 0, perm: 0, absent: 0, temp: 0, cost: 0, permWage: 0, hasExplicitCost: false };
       const effectivePerm = Math.max(0, p.permCount);
       const effectiveAbsent = Math.max(0, p.absentCount);
       const effectiveTemp = p.tempCount !== undefined && p.tempCount >= 0 ? p.tempCount : 0;
@@ -161,6 +162,7 @@ function mergeParsedDepartmentsIntoSheet(
       existing.absent += effectiveAbsent;
       existing.temp += effectiveTemp;
       existing.cost += costVal;
+      if (p.permWage !== undefined && p.permWage > 0) existing.permWage = p.permWage;
       if (p.costVal !== undefined && p.costVal > 0) {
         existing.hasExplicitCost = true;
       }
@@ -192,11 +194,15 @@ function mergeParsedDepartmentsIntoSheet(
       const effectiveTemp = parsedAccum.temp;
       const effectiveCadre = parsedAccum.cadre > 0 ? parsedAccum.cadre : (effectivePerm + effectiveAbsent || stdRole.cadre);
       
-      const permWage = (parsedAccum.hasExplicitCost && effectivePerm > 0)
+      const permWage = parsedAccum.permWage > 0
+        ? parsedAccum.permWage
+        : (parsedAccum.hasExplicitCost && effectivePerm > 0)
         ? Math.round((parsedAccum.cost / effectivePerm) * 100) / 100
         : (existing?.roles?.[0]?.permWage || stdRole.wage);
 
-      const deptCost = parsedAccum.hasExplicitCost
+      const deptCost = parsedAccum.permWage > 0
+        ? Math.round(effectivePerm * parsedAccum.permWage * 100) / 100
+        : parsedAccum.hasExplicitCost
         ? parsedAccum.cost
         : Math.round(effectivePerm * permWage * 100) / 100;
 
@@ -256,10 +262,14 @@ function mergeParsedDepartmentsIntoSheet(
     const effectiveAbsent = Math.max(0, p.absentCount);
     const effectiveTemp = p.tempCount !== undefined && p.tempCount >= 0 ? p.tempCount : 0;
     const effectiveCadre = p.cadreCount > 0 ? p.cadreCount : (effectivePerm + effectiveAbsent);
-    const permWage = (p.costVal && p.costVal > 0 && effectivePerm > 0)
+    const permWage = p.permWage && p.permWage > 0
+      ? p.permWage
+      : (p.costVal && p.costVal > 0 && effectivePerm > 0)
       ? Math.round((p.costVal / effectivePerm) * 100) / 100
       : 140.00;
-    const deptCost = (p.costVal !== undefined && p.costVal >= 0)
+    const deptCost = p.permWage && p.permWage > 0
+      ? Math.round(effectivePerm * p.permWage * 100) / 100
+      : (p.costVal !== undefined && p.costVal >= 0)
       ? p.costVal
       : Math.round(effectivePerm * permWage * 100) / 100;
     const deptId = `dept_extra_${Date.now()}_${pIdx}`;
@@ -410,7 +420,7 @@ export default function ClockInUploadModal({
   const processMatrixRows = (
     matrix: any[][],
     defaultDate: string,
-    datesAccumulator: Record<string, Record<string, { rawName: string; cadre: number; perm: number; absent: number; temp: number; cost: number }>>
+    datesAccumulator: Record<string, Record<string, { rawName: string; cadre: number; perm: number; absent: number; temp: number; cost: number; permWage: number }>>
   ) => {
     if (!matrix || matrix.length === 0) return;
 
@@ -503,6 +513,7 @@ export default function ClockInUploadModal({
     const absentIdx = headerRow.findIndex(h => h.includes('absent') || h.includes('leave') || h.includes('off') || h.includes('sick') || h.includes('away') || h.includes('not at work'));
     let tempIdx = headerRow.findIndex(h => h.includes('temp') || h.includes('casual') || h.includes('contract') || h.includes('agency') || h.includes('extra') || h.includes('sub') || h.includes('helper') || h.includes('temporary') || h.includes('outsourced') || h.includes('non-perm'));
     let costIdx = headerRow.findIndex(h => h.includes('cost') || h.includes('wage') || h.includes('rate') || h.includes('amount') || h.includes('spend') || h.includes('total cost') || h.includes('daily cost') || h.includes('val'));
+    const permWageIdx = headerRow.findIndex(h => /(?:perm|permanent).*wage|wage.*(?:perm|permanent)|daily wage/.test(h));
 
     // Intelligent Column Resolution: Distinguish Temp Headcount from Currency Cost
     if (tempIdx === -1 || costIdx === -1) {
@@ -606,6 +617,7 @@ export default function ClockInUploadModal({
 
       const tempVal = tempIdx !== -1 && tempIdx < matrix[r].length ? parseNum(matrix[r][tempIdx]) : 0;
       const costVal = costIdx !== -1 && costIdx < matrix[r].length ? parseNum(matrix[r][costIdx]) : 0;
+      const permWageVal = permWageIdx !== -1 && permWageIdx < matrix[r].length ? parseNum(matrix[r][permWageIdx]) : 0;
 
       // Skip row if completely non-data
       if (effectiveCadre === 0 && presentVal === 0 && absentVal === 0 && tempVal === 0 && costVal === 0) {
@@ -618,7 +630,7 @@ export default function ClockInUploadModal({
 
       const deptKey = rawDept.toUpperCase();
       if (!datesAccumulator[rowDate][deptKey]) {
-        datesAccumulator[rowDate][deptKey] = { rawName: rawDept, cadre: 0, perm: 0, absent: 0, temp: 0, cost: 0 };
+        datesAccumulator[rowDate][deptKey] = { rawName: rawDept, cadre: 0, perm: 0, absent: 0, temp: 0, cost: 0, permWage: 0 };
       }
 
       datesAccumulator[rowDate][deptKey].cadre += effectiveCadre;
@@ -626,6 +638,7 @@ export default function ClockInUploadModal({
       datesAccumulator[rowDate][deptKey].absent += absentVal;
       datesAccumulator[rowDate][deptKey].temp += tempVal;
       datesAccumulator[rowDate][deptKey].cost += costVal;
+      if (permWageVal > 0) datesAccumulator[rowDate][deptKey].permWage = permWageVal;
     }
   };
 
@@ -636,7 +649,7 @@ export default function ClockInUploadModal({
     setParseError(null);
     setSuccessMessage(null);
 
-    const datesAccumulator: Record<string, Record<string, { rawName: string; cadre: number; perm: number; absent: number; temp: number; cost: number }>> = {};
+    const datesAccumulator: Record<string, Record<string, { rawName: string; cadre: number; perm: number; absent: number; temp: number; cost: number; permWage: number }>> = {};
 
     try {
       for (const uploadedFile of uploadedFiles) {
@@ -672,7 +685,8 @@ export default function ClockInUploadModal({
             permCount: info.perm,
             absentCount: info.absent,
             tempCount: info.temp,
-            costVal: info.cost
+            costVal: info.cost,
+            permWage: info.permWage
           };
         });
 

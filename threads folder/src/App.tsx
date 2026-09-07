@@ -105,7 +105,8 @@ const STORAGE_KEYS = {
   ACTIVE_SHEET: 'ph_active_sheet',
   ROLE_PERMISSIONS: 'ph_role_permissions',
   USERS_LIST: 'ph_users_list',
-  HIDDEN_SHEETS: 'ph_hidden_sheet_ids'
+  HIDDEN_SHEETS: 'ph_hidden_sheet_ids',
+  DISABLED_TABS: 'ph_disabled_tabs'
 };
 
 const DEFAULT_OVERHEADS: Overheads = {
@@ -156,6 +157,7 @@ export default function App() {
   
   // Date Visibility & Focus Filter State
   const [hiddenSheetIds, setHiddenSheetIds] = useState<string[]>([]);
+  const [disabledTabs, setDisabledTabs] = useState<string[]>([]);
   const [selectedMonthFilter, setSelectedMonthFilter] = useState<string>('ALL');
   const [showManageHiddenModal, setShowManageHiddenModal] = useState<boolean>(false);
   const [sheetToReset, setSheetToReset] = useState<{ id: string; label: string } | null>(null);
@@ -234,6 +236,12 @@ export default function App() {
     if (savedHidden) {
       try {
         setHiddenSheetIds(JSON.parse(savedHidden));
+      } catch (e) {}
+    }
+    const savedDisabledTabs = localStorage.getItem(STORAGE_KEYS.DISABLED_TABS);
+    if (savedDisabledTabs) {
+      try {
+        setDisabledTabs(JSON.parse(savedDisabledTabs));
       } catch (e) {}
     }
 
@@ -675,6 +683,10 @@ export default function App() {
             setHiddenSheetIds(data.hiddenSheetIds);
             localStorage.setItem(STORAGE_KEYS.HIDDEN_SHEETS, JSON.stringify(data.hiddenSheetIds));
           }
+          if (Array.isArray(data.disabledTabs)) {
+            setDisabledTabs(data.disabledTabs);
+            localStorage.setItem(STORAGE_KEYS.DISABLED_TABS, JSON.stringify(data.disabledTabs));
+          }
           if (data.nightShift && typeof data.nightShift === 'object') {
             if (data.nightShift.start) {
               setNightStart(data.nightShift.start);
@@ -804,6 +816,10 @@ export default function App() {
             setHiddenSheetIds(data.hiddenSheetIds);
             localStorage.setItem(STORAGE_KEYS.HIDDEN_SHEETS, JSON.stringify(data.hiddenSheetIds));
           }
+          if (Array.isArray(data.disabledTabs)) {
+            setDisabledTabs(data.disabledTabs);
+            localStorage.setItem(STORAGE_KEYS.DISABLED_TABS, JSON.stringify(data.disabledTabs));
+          }
         }
       }
 
@@ -846,11 +862,11 @@ export default function App() {
 
   // Tab protection for non-superadmin users
   useEffect(() => {
-    if (user && user.role !== 'super_admin' && activeTab === 'admin') {
+    if (user && (disabledTabs.includes(activeTab) || (user.role !== 'super_admin' && activeTab === 'admin'))) {
       setActiveTab('summary');
       localStorage.setItem(STORAGE_KEYS.ACTIVE_TAB, 'summary');
     }
-  }, [user, activeTab]);
+  }, [user, activeTab, disabledTabs]);
 
   const initializeDefaultSheets = () => {
     const initial = sortSheetsChronologically(buildInitialSheets());
@@ -867,12 +883,14 @@ export default function App() {
     updatedSubsidiaries?: SubsidiaryProfile[],
     updatedAllocations?: SubsidiaryAllocation[],
     updatedPrograms?: WageSubsidyProgram[],
-    updatedHiddenIds?: string[]
+    updatedHiddenIds?: string[],
+    updatedDisabledTabs?: string[]
   ) => {
     const currentSubs = updatedSubsidiaries !== undefined ? updatedSubsidiaries : subsidiaries;
     const currentAllocs = updatedAllocations !== undefined ? updatedAllocations : subsidiaryAllocations;
     const currentProgs = updatedPrograms !== undefined ? updatedPrograms : subsidyPrograms;
     const currentHidden = updatedHiddenIds !== undefined ? updatedHiddenIds : hiddenSheetIds;
+    const currentDisabledTabs = updatedDisabledTabs !== undefined ? updatedDisabledTabs : disabledTabs;
 
     const now = Date.now();
     localChangeTimestampRef.current = now;
@@ -886,6 +904,7 @@ export default function App() {
       subsidiaryAllocations: currentAllocs,
       subsidyPrograms: currentProgs,
       hiddenSheetIds: currentHidden,
+      disabledTabs: currentDisabledTabs,
       nightShift: { start: nightStart, end: nightEnd, differential: nightDifferential },
       lastUpdated: now,
       updatedBy: authorName
@@ -1038,6 +1057,7 @@ export default function App() {
     const nextAllocs = Array.isArray(snapshot.subsidiaryAllocations) ? snapshot.subsidiaryAllocations : subsidiaryAllocations;
     const nextProgs = Array.isArray(snapshot.subsidyPrograms) ? snapshot.subsidyPrograms : subsidyPrograms;
     const nextHidden = Array.isArray(snapshot.hiddenSheetIds) ? snapshot.hiddenSheetIds : hiddenSheetIds;
+    const nextDisabledTabs = Array.isArray(snapshot.disabledTabs) ? snapshot.disabledTabs : disabledTabs;
 
     setOverheads(nextOH);
     setPayrollParams(nextPR);
@@ -1045,6 +1065,7 @@ export default function App() {
     setSubsidiaryAllocations(nextAllocs);
     setSubsidyPrograms(nextProgs);
     setHiddenSheetIds(nextHidden);
+    setDisabledTabs(nextDisabledTabs);
 
     if (snapshot.nightShift) {
       if (snapshot.nightShift.start) {
@@ -1067,7 +1088,8 @@ export default function App() {
       nextSubs,
       nextAllocs,
       nextProgs,
-      nextHidden
+      nextHidden,
+      nextDisabledTabs
     );
 
     setCloudSyncToast({
@@ -1107,6 +1129,16 @@ export default function App() {
   const handleSwitchTab = (tab: string) => {
     setActiveTab(tab);
     localStorage.setItem(STORAGE_KEYS.ACTIVE_TAB, tab);
+  };
+
+  const handleUpdateDisabledTabs = (nextTabs: string[]) => {
+    const sanitizedTabs = nextTabs.filter(tab => tab !== 'summary' && tab !== 'admin');
+    setDisabledTabs(sanitizedTabs);
+    localStorage.setItem(STORAGE_KEYS.DISABLED_TABS, JSON.stringify(sanitizedTabs));
+    triggerAutoSave(sheets, overheads, payrollParams, subsidiaries, subsidiaryAllocations, subsidyPrograms, hiddenSheetIds, sanitizedTabs);
+    if (sanitizedTabs.includes(activeTab)) {
+      handleSwitchTab('summary');
+    }
   };
 
   // Sheet Updates
@@ -1507,13 +1539,21 @@ export default function App() {
   };
   const perms = {
     ...rawPerms,
-    allowedTabs: (rawPerms.allowedTabs || ['summary', 'monthly_summary']).filter(t => t !== 'admin' || isSuperAdmin)
+    allowedTabs: (rawPerms.allowedTabs || ['summary', 'monthly_summary'])
+      .filter(t => t !== 'admin' || isSuperAdmin)
+      .filter(t => !disabledTabs.includes(t) || t === 'summary' || t === 'admin')
   };
-  const overheadDaily = (overheads.rent + overheads.utilities + overheads.admin + overheads.other) / 26;
+  const enabledTabsForAnalytics = disabledTabs.length === 0
+    ? []
+    : ['summary', 'monthly_summary', 'headcount', 'subsidies', 'earnings', 'payroll', 'overheads', 'changes', 'admin']
+      .filter(tab => !disabledTabs.includes(tab));
+  const overheadDaily = disabledTabs.includes('overheads')
+    ? 0
+    : (overheads.rent + overheads.utilities + overheads.admin + overheads.other) / 26;
 
   let totalLabourCost = 0;
   let totalHeadcount = 0;
-  if (activeSheet) {
+  if (activeSheet && !disabledTabs.includes('headcount')) {
     activeSheet.departments.forEach((d) => {
       d.roles.forEach((r) => {
         totalHeadcount += r.perm + r.temp;
@@ -1527,7 +1567,7 @@ export default function App() {
   const activeDailySubsidizedHeadcount = activeDailyAllocs.reduce((sum, a) => sum + (a.headcountPerm || 0) + (a.headcountTemp || 0), 0);
   const activeDailySubsidizedCost = activeDailyAllocs.reduce((sum, a) => sum + (a.totalCost || 0) + (a.otCost || 0), 0);
 
-  const earningsTotal = activeSheet ? activeSheet.earnings.reduce((sum, e) => sum + (e.qtyProduced * e.cmPrice), 0) : 0;
+  const earningsTotal = activeSheet && !disabledTabs.includes('earnings') ? activeSheet.earnings.reduce((sum, e) => sum + (e.qtyProduced * e.cmPrice), 0) : 0;
 
   const handleSeedPayCycleSheets = (cycleId: string) => {
     const cycleInfo = availablePayCycles.find(c => c.id === cycleId);
@@ -2042,6 +2082,7 @@ export default function App() {
                   canEditEarnings={perms.canEditEarnings}
                   onOpenSubsidiesPanel={() => setShowSubsidiesPanel(true)}
                   allocations={subsidiaryAllocations}
+                  enabledTabs={enabledTabsForAnalytics}
                 />
               )}
               {activeTab === 'monthly_summary' && (
@@ -2049,6 +2090,7 @@ export default function App() {
                   sheets={sheets}
                   overheads={overheads}
                   currency={CURRENCY}
+                  enabledTabs={enabledTabsForAnalytics}
                 />
               )}
               {activeTab === 'headcount' && (
@@ -2142,6 +2184,8 @@ export default function App() {
                   rolePermissionsMap={rolePermissionsMap}
                   onUpdateRolePermissions={handleUpdateRolePermissions}
                   onUpdateUsersList={handleUpdateUsersList}
+                  disabledTabs={disabledTabs}
+                  onUpdateDisabledTabs={handleUpdateDisabledTabs}
                   firebaseConnected={firebaseConnected}
                 />
               )}
