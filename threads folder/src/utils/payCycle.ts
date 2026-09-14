@@ -439,16 +439,19 @@ export function getAllDatesForPayCycle(cycleInfo: PayCycleInfo): string[] {
 
 export function isValidDateSheetName(value: unknown): boolean {
   if (typeof value !== 'string') return false;
-  const match = value.trim().toUpperCase().match(/^(\d{2})-([A-Z]{3,9})-(\d{4})$/);
+  const match = value.trim().toUpperCase().match(/^(\d{1,2})[\s-]+([A-Z]{3,12})\.?[\s-]+(\d{4})$/);
   if (!match) return false;
 
-  const monthText = match[2];
-  const monthIdx = MONTHS_FULL.findIndex(month => month.startsWith(monthText)) !== -1
-    ? MONTHS_FULL.findIndex(month => month.startsWith(monthText))
+  const day = parseInt(match[1], 10);
+  const monthText = match[2].replace(/[^A-Z]/g, '');
+  const year = parseInt(match[3], 10);
+  const fullMonthIdx = MONTHS_FULL.findIndex(month => month.startsWith(monthText));
+  const monthIdx = fullMonthIdx !== -1
+    ? fullMonthIdx
     : MONTHS_SHORT.findIndex(month => month.startsWith(monthText));
-  const date = new Date(parseInt(match[3], 10), monthIdx, parseInt(match[1], 10));
-  return monthIdx >= 0 && date.getFullYear() === parseInt(match[3], 10)
-    && date.getMonth() === monthIdx && date.getDate() === parseInt(match[1], 10);
+  const date = new Date(year, monthIdx, day);
+  return monthIdx >= 0 && date.getFullYear() === year
+    && date.getMonth() === monthIdx && date.getDate() === day;
 }
 
 /**
