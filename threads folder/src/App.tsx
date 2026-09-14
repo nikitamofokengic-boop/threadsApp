@@ -2205,6 +2205,7 @@ export default function App() {
           onClose={() => setShowClockInModal(false)}
           activeSheet={activeSheet}
           allSheets={sheets}
+          selectedPayCycleId={selectedMonthFilter}
           onApplyHeadcount={handleApplyClockInHeadcount}
           onApplyMultiDateHeadcount={handleApplyMultiDateClockInHeadcount}
           currency={CURRENCY}

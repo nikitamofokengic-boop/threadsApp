@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { SheetData, Department } from '../types';
 import { FileSpreadsheet, CheckCircle2, AlertCircle, Download, X, Clock, Calendar, Sparkles, Filter, ArrowRight } from 'lucide-react';
 import * as XLSX from 'xlsx';
-import { extractAndNormalizeDate, getDayInfo, parseDateLabelToDate } from '../utils/payCycle';
+import { extractAndNormalizeDate, getDayInfo, isDateInPayCycle, parseDateLabelToDate } from '../utils/payCycle';
 import {
   QUANTUM2_STANDARD_ROSTER,
   QUANTUM2_03_AUG_ROSTER,
@@ -34,6 +34,7 @@ interface ClockInUploadModalProps {
   onClose: () => void;
   activeSheet: SheetData;
   allSheets?: SheetData[];
+  selectedPayCycleId?: string;
   onApplyHeadcount: (updatedDepartments: Department[], importedDate?: string) => void;
   onApplyMultiDateHeadcount?: (dateUpdates: { dateLabel: string; departments: Department[] }[]) => void;
   currency: string;
@@ -303,6 +304,7 @@ export default function ClockInUploadModal({
   onClose,
   activeSheet,
   allSheets = [],
+  selectedPayCycleId = 'ALL',
   onApplyHeadcount,
   onApplyMultiDateHeadcount,
   currency
@@ -716,19 +718,34 @@ export default function ClockInUploadModal({
 
   const activePreviewEntry = parsedMultiDate.find(d => d.dateLabel === selectedPreviewDate) || parsedMultiDate[0];
 
+  const alignDateToSelectedPayCycle = (dateLabel: string): string => {
+    if (selectedPayCycleId === 'ALL') return dateLabel;
+
+    const cycleSheets = allSheets
+      .filter(sheet => isDateInPayCycle(sheet.label, selectedPayCycleId))
+      .sort((a, b) => parseDateLabelToDate(a.label).getTime() - parseDateLabelToDate(b.label).getTime());
+    const importedDate = parseDateLabelToDate(dateLabel);
+    const matchingSheet = cycleSheets.find(sheet => parseDateLabelToDate(sheet.label).getDate() === importedDate.getDate());
+
+    if (matchingSheet) return extractAndNormalizeDate(matchingSheet.label);
+    if (cycleSheets.length === 0) return dateLabel;
+
+    return extractAndNormalizeDate(cycleSheets[0].label);
+  };
+
   const handleApplySelectedDates = () => {
     if (datesToApply.length === 0) return;
 
     const allUpdates = datesToApply.map(entry => {
       // Look up target sheet from allSheets or activeSheet
-      const normalizedEntryDate = extractAndNormalizeDate(entry.dateLabel);
+      const normalizedEntryDate = alignDateToSelectedPayCycle(entry.dateLabel);
       const targetSheet = (allSheets || []).find(s => extractAndNormalizeDate(s.label) === normalizedEntryDate) ||
         (extractAndNormalizeDate(activeSheet?.label) === normalizedEntryDate ? activeSheet : undefined);
 
       const mergedDepts = mergeParsedDepartmentsIntoSheet(targetSheet, entry.departments);
 
       return {
-        dateLabel: entry.dateLabel,
+        dateLabel: normalizedEntryDate,
         departments: mergedDepts
       };
     });
@@ -750,14 +767,14 @@ export default function ClockInUploadModal({
 
     const allUpdates = parsedMultiDate.map(entry => {
       // Look up target sheet from allSheets or activeSheet
-      const normalizedEntryDate = extractAndNormalizeDate(entry.dateLabel);
+      const normalizedEntryDate = alignDateToSelectedPayCycle(entry.dateLabel);
       const targetSheet = (allSheets || []).find(s => extractAndNormalizeDate(s.label) === normalizedEntryDate) ||
         (extractAndNormalizeDate(activeSheet?.label) === normalizedEntryDate ? activeSheet : undefined);
 
       const mergedDepts = mergeParsedDepartmentsIntoSheet(targetSheet, entry.departments);
 
       return {
-        dateLabel: entry.dateLabel,
+        dateLabel: normalizedEntryDate,
         departments: mergedDepts
       };
     });
@@ -777,7 +794,7 @@ export default function ClockInUploadModal({
   const handleApplySingleDate = () => {
     if (!activePreviewEntry) return;
 
-    const normalizedEntryDate = extractAndNormalizeDate(activePreviewEntry.dateLabel);
+    const normalizedEntryDate = alignDateToSelectedPayCycle(activePreviewEntry.dateLabel);
     const targetSheet = (allSheets || []).find(s => extractAndNormalizeDate(s.label) === normalizedEntryDate) ||
       (extractAndNormalizeDate(activeSheet?.label) === normalizedEntryDate ? activeSheet : undefined);
 
