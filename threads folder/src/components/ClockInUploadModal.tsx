@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { SheetData, Department } from '../types';
 import { FileSpreadsheet, CheckCircle2, AlertCircle, Download, X, Clock, Calendar, Sparkles, Filter, ArrowRight } from 'lucide-react';
 import * as XLSX from 'xlsx';
-import { extractAndNormalizeDate, getDayInfo, isDateInPayCycle, parseDateLabelToDate } from '../utils/payCycle';
+import { extractAndNormalizeDate, getDayInfo, isDateInPayCycle, isValidDateSheetName, parseDateLabelToDate } from '../utils/payCycle';
 import {
   QUANTUM2_STANDARD_ROSTER,
   QUANTUM2_03_AUG_ROSTER,
@@ -663,6 +663,7 @@ export default function ClockInUploadModal({
           const workbook = XLSX.read(new Uint8Array(buffer), { type: 'array', cellDates: true });
 
           for (const sheetName of workbook.SheetNames) {
+            if (!isValidDateSheetName(sheetName)) continue;
             const worksheet = workbook.Sheets[sheetName];
             const matrix: any[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' });
             const sheetDate = extractAndNormalizeDate(sheetName, fileDate);

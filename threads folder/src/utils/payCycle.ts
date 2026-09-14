@@ -437,6 +437,20 @@ export function getAllDatesForPayCycle(cycleInfo: PayCycleInfo): string[] {
   return dates;
 }
 
+export function isValidDateSheetName(value: unknown): boolean {
+  if (typeof value !== 'string') return false;
+  const match = value.trim().toUpperCase().match(/^(\d{2})-([A-Z]{3,9})-(\d{4})$/);
+  if (!match) return false;
+
+  const monthText = match[2];
+  const monthIdx = MONTHS_FULL.findIndex(month => month.startsWith(monthText)) !== -1
+    ? MONTHS_FULL.findIndex(month => month.startsWith(monthText))
+    : MONTHS_SHORT.findIndex(month => month.startsWith(monthText));
+  const date = new Date(parseInt(match[3], 10), monthIdx, parseInt(match[1], 10));
+  return monthIdx >= 0 && date.getFullYear() === parseInt(match[3], 10)
+    && date.getMonth() === monthIdx && date.getDate() === parseInt(match[1], 10);
+}
+
 /**
  * Extracts and normalizes any raw date string, Excel serial number, or Date object
  * into standard "D MONTH YYYY" format (e.g. "10 AUGUST 2026", "11 AUGUST 2026").
@@ -476,6 +490,22 @@ export function extractAndNormalizeDate(raw: any, fallbackDate: string = '21 JUL
   const str = String(raw).trim();
   if (!str) return fallbackDate;
   const upper = str.toUpperCase();
+
+  // Workbook sheet names use the exact DD-MMM-YYYY format, for example 01-SEPT-2026.
+  const sheetNameMatch = upper.match(/^(\d{2})-([A-Z]{3,9})-(\d{4})$/);
+  if (sheetNameMatch) {
+    const day = parseInt(sheetNameMatch[1], 10);
+    const monthText = sheetNameMatch[2];
+    const year = parseInt(sheetNameMatch[3], 10);
+    const fullMonthIdx = MONTHS_FULL.findIndex(month => month.startsWith(monthText));
+    const monthIdx = fullMonthIdx !== -1
+      ? fullMonthIdx
+      : MONTHS_SHORT.findIndex(month => month.startsWith(monthText));
+    const date = new Date(year, monthIdx, day);
+    if (monthIdx >= 0 && date.getFullYear() === year && date.getMonth() === monthIdx && date.getDate() === day) {
+      return `${day} ${MONTHS_FULL[monthIdx]} ${year}`;
+    }
+  }
 
   // Match full names and common abbreviations such as JAN, JANU, SEPT, and SEPT.
   // Resolution below still limits the result to one of the twelve real months.
