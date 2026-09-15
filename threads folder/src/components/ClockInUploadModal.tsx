@@ -70,6 +70,36 @@ const ROLE_SYNONYMS: Record<string, string[]> = {
   "Finishing": ["FINISHING", "FINISHING DEPT", "FINISHING SECTION"]
 };
 
+const IMPORT_HEADER_ALIASES = {
+  cadre: ["cadre", "total employees headcount", "total employee headcount", "total headcount", "total staff", "headcount"],
+  present: ["present", "employees at work today", "employees present", "at work today", "at work", "present staff", "clocked in", "attendance", "working"],
+  absent: ["absent", "employees not at work", "not at work", "employees absent", "away", "leave", "off duty"],
+  cost: ["cost", "wage amount for present staff", "wage amount", "daily wage cost", "total cost", "amount", "wage"],
+  department: ["department", "dept", "section", "particulars", "role", "operation", "designation", "name", "employee", "manpower"]
+};
+
+export function normalizeImportHeaderLabel(value: string): string {
+  return String(value ?? '')
+    .toLowerCase()
+    .replace(/&/g, ' and ')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+export function matchesImportHeaderLabel(value: string, aliases: string[]): boolean {
+  const normalizedValue = normalizeImportHeaderLabel(value);
+  if (!normalizedValue) return false;
+
+  return aliases.some(alias => {
+    const normalizedAlias = normalizeImportHeaderLabel(alias);
+    if (!normalizedAlias) return false;
+    return normalizedValue === normalizedAlias
+      || normalizedValue.includes(normalizedAlias)
+      || normalizedAlias.includes(normalizedValue);
+  });
+}
+
 export function findMatchingRoleName(parsedDeptName: string): string | null {
   if (!parsedDeptName) return null;
   const clean = parsedDeptName.trim().toUpperCase().replace(/^[0-9.]+\s*/, '');
@@ -468,17 +498,17 @@ export default function ClockInUploadModal({
       let distinctColMatches = 0;
 
       for (let c = 0; c < matrix[r].length; c++) {
-        const colStr = parseStr(matrix[r][c]).toLowerCase();
+        const colStr = parseStr(matrix[r][c]);
         if (!colStr) continue;
 
         if (
-          colStr.includes('dept') || colStr.includes('department') || colStr.includes('section') || 
-          colStr.includes('particulars') || colStr.includes('operation') || colStr.includes('role') || colStr.includes('name') ||
-          colStr === 'cadre' || colStr.includes('budget') || colStr.includes('planned') || colStr.includes('sanction') ||
-          colStr === 'permanent' || colStr.includes('perm') || colStr.includes('present') || colStr.includes('clock') || colStr.includes('actual') || colStr.includes('attended') ||
-          colStr === 'absent' || colStr.includes('leave') || colStr.includes('off') ||
-          colStr === 'cost' || colStr.includes('wage') || colStr.includes('amount') || colStr.includes('rate') || colStr.includes('spend') ||
-          colStr.includes('temp') || colStr.includes('casual') || colStr.includes('contract') || colStr.includes('agency') || colStr.includes('temporary')
+          matchesImportHeaderLabel(colStr, IMPORT_HEADER_ALIASES.department)
+          || matchesImportHeaderLabel(colStr, IMPORT_HEADER_ALIASES.cadre)
+          || matchesImportHeaderLabel(colStr, ["budget", "planned", "sanction", "total staff", "total employees", "total employees headcount", "headcount"])
+          || matchesImportHeaderLabel(colStr, ["permanent", "perm", "present", "employees at work today", "at work today", "actual", "attended", "clock", "clocked in"])
+          || matchesImportHeaderLabel(colStr, IMPORT_HEADER_ALIASES.absent)
+          || matchesImportHeaderLabel(colStr, IMPORT_HEADER_ALIASES.cost)
+          || matchesImportHeaderLabel(colStr, ["temp", "casual", "contract", "agency", "temporary", "helper"])
         ) {
           distinctColMatches++;
         }
@@ -506,16 +536,16 @@ export default function ClockInUploadModal({
     }
 
     // 3. Identify Column Indices from Header Row
-    const headerRow = (matrix[headerLineIdx] || []).map(c => parseStr(c).toLowerCase());
+    const headerRow = (matrix[headerLineIdx] || []).map(c => parseStr(c));
 
-    const dateIdx = headerRow.findIndex(h => h.includes('date') || h.includes('day') || h.includes('workdate') || h.includes('shift date'));
-    const deptIdx = headerRow.findIndex(h => h.includes('dept') || h.includes('department') || h.includes('section') || h.includes('division') || h.includes('title') || h.includes('name') || h.includes('role') || h.includes('particulars') || h.includes('operation') || h.includes('description') || h.includes('job') || h.includes('manpower'));
-    const cadreIdx = headerRow.findIndex(h => (h.includes('cadre') || h.includes('budget') || h.includes('planned') || h.includes('sanction') || h.includes('total staff') || h.includes('total headcount') || h.includes('total hc') || h.includes('headcount')) && !h.includes('details') && !h.includes('department') && !h.includes('dept'));
-    const presentIdx = headerRow.findIndex(h => h.includes('present') || h.includes('at work') || h.includes('working') || h.includes('clock') || h.includes('perm') || h.includes('permanent') || h.includes('actual') || h.includes('attended') || h.includes('on duty') || h.includes('qty') || h.includes('count'));
-    const absentIdx = headerRow.findIndex(h => h.includes('absent') || h.includes('leave') || h.includes('off') || h.includes('sick') || h.includes('away') || h.includes('not at work'));
-    let tempIdx = headerRow.findIndex(h => h.includes('temp') || h.includes('casual') || h.includes('contract') || h.includes('agency') || h.includes('extra') || h.includes('sub') || h.includes('helper') || h.includes('temporary') || h.includes('outsourced') || h.includes('non-perm'));
-    let costIdx = headerRow.findIndex(h => h.includes('cost') || h.includes('wage') || h.includes('rate') || h.includes('amount') || h.includes('spend') || h.includes('total cost') || h.includes('daily cost') || h.includes('val'));
-    const permWageIdx = headerRow.findIndex(h => /(?:perm|permanent).*wage|wage.*(?:perm|permanent)|daily wage/.test(h));
+    const dateIdx = headerRow.findIndex(h => matchesImportHeaderLabel(h, ["date", "day", "work date", "workdate", "shift date"]));
+    const deptIdx = headerRow.findIndex(h => matchesImportHeaderLabel(h, IMPORT_HEADER_ALIASES.department));
+    const cadreIdx = headerRow.findIndex(h => matchesImportHeaderLabel(h, IMPORT_HEADER_ALIASES.cadre) && !matchesImportHeaderLabel(h, ["department", "dept", "details"]));
+    const presentIdx = headerRow.findIndex(h => matchesImportHeaderLabel(h, IMPORT_HEADER_ALIASES.present) || matchesImportHeaderLabel(h, ["perm", "permanent", "actual", "attended", "on duty", "qty", "count"]));
+    const absentIdx = headerRow.findIndex(h => matchesImportHeaderLabel(h, IMPORT_HEADER_ALIASES.absent));
+    let tempIdx = headerRow.findIndex(h => matchesImportHeaderLabel(h, ["temp", "casual", "contract", "agency", "extra", "sub", "helper", "temporary", "outsourced", "non perm", "non-perm"]));
+    let costIdx = headerRow.findIndex(h => matchesImportHeaderLabel(h, IMPORT_HEADER_ALIASES.cost) || matchesImportHeaderLabel(h, ["rate", "spend", "daily cost", "value", "val"]));
+    const permWageIdx = headerRow.findIndex(h => /(?:perm|permanent).*wage|wage.*(?:perm|permanent)|daily wage/.test(normalizeImportHeaderLabel(h)));
 
     // Intelligent Column Resolution: Distinguish Temp Headcount from Currency Cost
     if (tempIdx === -1 || costIdx === -1) {
