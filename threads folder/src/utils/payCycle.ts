@@ -439,7 +439,18 @@ export function getAllDatesForPayCycle(cycleInfo: PayCycleInfo): string[] {
 
 export function isValidDateSheetName(value: unknown): boolean {
   if (typeof value !== 'string') return false;
-  const match = value.trim().toUpperCase().match(/^(\d{1,2})[\s-]+([A-Z]{3,12})\.?[\s-]+(\d{4})$/);
+  const normalizedValue = value.trim().toUpperCase();
+  const numericMatch = normalizedValue.match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{4})$/);
+  if (numericMatch) {
+    const day = parseInt(numericMatch[1], 10);
+    const monthIdx = parseInt(numericMatch[2], 10) - 1;
+    const year = parseInt(numericMatch[3], 10);
+    const date = new Date(year, monthIdx, day);
+    return monthIdx >= 0 && monthIdx < 12 && date.getFullYear() === year
+      && date.getMonth() === monthIdx && date.getDate() === day;
+  }
+
+  const match = normalizedValue.match(/^(\d{1,2})[\s-]+([A-Z]{3,12})\.?[\s-]+(\d{4})$/);
   if (!match) return false;
 
   const day = parseInt(match[1], 10);
