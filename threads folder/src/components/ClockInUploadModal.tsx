@@ -473,23 +473,10 @@ export default function ClockInUploadModal({
       return String(val).trim();
     };
 
-    // 1. Detect explicit Date inside title cells in top 30 rows
-    let detectedDate = defaultDate;
-    for (let r = 0; r < Math.min(matrix.length, 30); r++) {
-      if (!matrix[r]) continue;
-      for (let c = 0; c < Math.min(matrix[r].length, 12); c++) {
-        const cellText = parseStr(matrix[r][c]);
-        if (cellText && cellText.length >= 4) {
-          const norm = extractAndNormalizeDate(matrix[r][c], '');
-          if (norm && norm.length >= 8) {
-            detectedDate = norm;
-            break;
-          }
-        }
-      }
-    }
+    // The worksheet tab is the authoritative date for this import format.
+    const detectedDate = defaultDate;
 
-    // 2. Scan for Header Row
+    // 1. Scan for Header Row
     let headerLineIdx = -1;
     let maxKeywordMatches = 0;
 
@@ -535,7 +522,7 @@ export default function ClockInUploadModal({
       if (headerLineIdx === -1) headerLineIdx = 0;
     }
 
-    // 3. Identify Column Indices from Header Row
+    // 2. Identify Column Indices from Header Row
     const headerRow = (matrix[headerLineIdx] || []).map(c => parseStr(c));
 
     const dateIdx = headerRow.findIndex(h => matchesImportHeaderLabel(h, ["date", "day", "work date", "workdate", "shift date"]));
@@ -596,7 +583,7 @@ export default function ClockInUploadModal({
       else pCol = dCol === 0 ? 1 : 2;
     }
 
-    // 4. Extract Data Rows
+    // 3. Extract Data Rows
     for (let r = headerLineIdx + 1; r < matrix.length; r++) {
       if (!matrix[r]) continue;
       const rawDeptStr = parseStr(matrix[r][dCol]);
@@ -620,13 +607,7 @@ export default function ClockInUploadModal({
         continue;
       }
 
-      let rowDate = detectedDate;
-      if (dateIdx !== -1 && matrix[r][dateIdx]) {
-        const rawRowDate = matrix[r][dateIdx];
-        if (rawRowDate !== null && rawRowDate !== undefined && String(rawRowDate).trim().length >= 3) {
-          rowDate = extractAndNormalizeDate(rawRowDate, detectedDate);
-        }
-      }
+      const rowDate = detectedDate;
 
       const cadreVal = cadreIdx !== -1 && cadreIdx < matrix[r].length ? parseNum(matrix[r][cadreIdx]) : 0;
       let presentVal = pCol !== -1 && pCol < matrix[r].length ? parseNum(matrix[r][pCol]) : 0;
