@@ -29,6 +29,22 @@ export interface DateParsedEntry {
   departments: ParsedDeptSummary[];
 }
 
+export function interpretPermanentWorkerCost(
+  costVal?: number,
+  permCount = 0,
+  permWage = 0,
+  tempCount = 0
+): number {
+  if (typeof costVal === 'number' && costVal > 0) return costVal;
+
+  if (permCount > 0 && permWage > 0) return Number((permCount * permWage).toFixed(2));
+
+  // Clock-in uploads are strictly for permanent workers. Temporary staff are not part of this import.
+  if (tempCount > 0 && permCount === 0 && costVal === 0) return 0;
+
+  return 0;
+}
+
 interface ClockInUploadModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -231,11 +247,12 @@ function mergeParsedDepartmentsIntoSheet(
         ? Math.round((parsedAccum.cost / effectivePerm) * 100) / 100
         : (existing?.roles?.[0]?.permWage || stdRole.wage);
 
-      const deptCost = parsedAccum.permWage > 0
-        ? Math.round(effectivePerm * parsedAccum.permWage * 100) / 100
-        : parsedAccum.hasExplicitCost
-        ? parsedAccum.cost
-        : Math.round(effectivePerm * permWage * 100) / 100;
+      const deptCost = interpretPermanentWorkerCost(
+        parsedAccum.hasExplicitCost ? parsedAccum.cost : undefined,
+        effectivePerm,
+        permWage,
+        effectiveTemp
+      ) || Math.round(effectivePerm * permWage * 100) / 100;
 
       const deptId = existing?.id || `dept_std_${idx}_${Date.now()}`;
       return {
@@ -298,11 +315,12 @@ function mergeParsedDepartmentsIntoSheet(
       : (p.costVal && p.costVal > 0 && effectivePerm > 0)
       ? Math.round((p.costVal / effectivePerm) * 100) / 100
       : 140.00;
-    const deptCost = p.permWage && p.permWage > 0
-      ? Math.round(effectivePerm * p.permWage * 100) / 100
-      : (p.costVal !== undefined && p.costVal >= 0)
-      ? p.costVal
-      : Math.round(effectivePerm * permWage * 100) / 100;
+    const deptCost = interpretPermanentWorkerCost(
+      p.costVal,
+      effectivePerm,
+      permWage,
+      effectiveTemp
+    ) || Math.round(effectivePerm * permWage * 100) / 100;
     const deptId = `dept_extra_${Date.now()}_${pIdx}`;
     orderedDepts.push({
       id: deptId,
@@ -628,7 +646,9 @@ export default function ClockInUploadModal({
         effectiveCadre = presentVal + absentVal;
       }
 
-      const tempVal = tempIdx !== -1 && tempIdx < matrix[r].length ? parseNum(matrix[r][tempIdx]) : 0;
+      // Clock-in uploads are strictly permanent-worker records. Temporary headcount is ignored to avoid
+      // incorrectly inflating the imported daily cost or applying temporary worker wages to the roster.
+      const tempVal = 0;
       const costVal = costIdx !== -1 && costIdx < matrix[r].length ? parseNum(matrix[r][costIdx]) : 0;
       const permWageVal = permWageIdx !== -1 && permWageIdx < matrix[r].length ? parseNum(matrix[r][permWageIdx]) : 0;
 
@@ -896,9 +916,12 @@ export default function ClockInUploadModal({
 
   const grandTotalCostAll = parsedMultiDate.reduce((acc, dateEntry) => {
     return acc + dateEntry.departments.reduce((s, d) => {
-      const permCost = (d.costVal && d.costVal > 0) ? d.costVal : (d.permCount * 158.15);
-      const tempCost = (d.tempCount || 0) * 125.95;
-      return s + permCost + tempCost;
+      return s + interpretPermanentWorkerCost(
+        d.costVal,
+        d.permCount,
+        d.permWage ?? 0,
+        d.tempCount || 0
+      );
     }, 0);
   }, 0);
 
@@ -961,7 +984,7 @@ export default function ClockInUploadModal({
               <span className="w-2.5 h-2.5 rounded-full bg-pink-600" />
               <div>
                 <strong className="text-pink-800 block text-[11px] font-black uppercase">Cost</strong>
-                <span className="text-[10px] text-pink-600 font-medium">Wage amount for present staff</span>
+                <span className="text-[10px] text-pink-600 font-medium">Permanent-worker wage cost only</span>
               </div>
             </div>
           </div>
@@ -1248,12 +1271,15 @@ export default function ClockInUploadModal({
                       </thead>
                       <tbody className="divide-y divide-slate-100 font-mono">
                         {activePreviewEntry.departments.map((d, idx) => {
-                          const calculatedWage = d.costVal && d.costVal > 0 && d.permCount > 0 
-                            ? Math.round((d.costVal / d.permCount) * 100) / 100 
-                            : 158.15;
-                          const calculatedPermCost = d.costVal && d.costVal > 0 
-                            ? d.costVal 
-                            : Math.round(calculatedWage * d.permCount);
+                          const calculatedWage = d.costVal && d.costVal > 0 && d.permCount > 0
+                            ? Math.round((d.costVal / d.permCount) * 100) / 100
+                            : (d.permWage && d.permWage > 0 ? d.permWage : 158.15);
+                          const calculatedPermCost = interpretPermanentWorkerCost(
+                            d.costVal,
+                            d.permCount,
+                            calculatedWage,
+                            d.tempCount || 0
+                          ) || Math.round(calculatedWage * d.permCount);
                           const totalCadre = d.cadreCount || (d.permCount + d.absentCount);
 
                           return (
