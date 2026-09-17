@@ -693,10 +693,12 @@ export default function ClockInUploadModal({
           const workbook = XLSX.read(new Uint8Array(buffer), { type: 'array', cellDates: true });
 
           for (const sheetName of workbook.SheetNames) {
-            if (!isValidDateSheetName(sheetName)) continue;
             const worksheet = workbook.Sheets[sheetName];
             const matrix: any[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' });
-            const sheetDate = extractAndNormalizeDate(sheetName, fileDate);
+            if (!matrix.length) continue;
+            const sheetDate = isValidDateSheetName(sheetName)
+              ? extractAndNormalizeDate(sheetName, fileDate)
+              : fileDate;
 
             processMatrixRows(matrix, sheetDate, datesAccumulator);
           }
