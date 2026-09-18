@@ -116,6 +116,27 @@ export function matchesImportHeaderLabel(value: string, aliases: string[]): bool
   });
 }
 
+export function findPermanentCostColumnIndex(headerRow: string[]): number {
+  const exactCostIndex = headerRow.findIndex(header => normalizeImportHeaderLabel(header) === 'cost');
+  if (exactCostIndex !== -1) return exactCostIndex;
+
+  const costAliases = new Set([
+    'total cost',
+    'daily cost',
+    'wage amount for present staff',
+    'permanent cost',
+    'permanent wage cost'
+  ]);
+
+  return headerRow.findIndex(header => {
+    const normalizedHeader = normalizeImportHeaderLabel(header);
+    return costAliases.has(normalizedHeader)
+      || normalizedHeader.startsWith('cost ')
+      || normalizedHeader.endsWith(' cost')
+      || normalizedHeader.includes(' cost ');
+  });
+}
+
 export function findMatchingRoleName(parsedDeptName: string): string | null {
   if (!parsedDeptName) return null;
   const clean = parsedDeptName.trim().toUpperCase().replace(/^[0-9.]+\s*/, '');
@@ -549,38 +570,12 @@ export default function ClockInUploadModal({
     const presentIdx = headerRow.findIndex(h => matchesImportHeaderLabel(h, IMPORT_HEADER_ALIASES.present) || matchesImportHeaderLabel(h, ["perm", "permanent", "actual", "attended", "on duty", "qty", "count"]));
     const absentIdx = headerRow.findIndex(h => matchesImportHeaderLabel(h, IMPORT_HEADER_ALIASES.absent));
     let tempIdx = headerRow.findIndex(h => matchesImportHeaderLabel(h, ["temp", "casual", "contract", "agency", "extra", "sub", "helper", "temporary", "outsourced", "non perm", "non-perm"]));
-    let costIdx = headerRow.findIndex(h => matchesImportHeaderLabel(h, IMPORT_HEADER_ALIASES.cost) || matchesImportHeaderLabel(h, ["rate", "spend", "daily cost", "value", "val"]));
+    const costIdx = findPermanentCostColumnIndex(headerRow);
     const permWageIdx = headerRow.findIndex(h => /(?:perm|permanent).*wage|wage.*(?:perm|permanent)|daily wage/.test(normalizeImportHeaderLabel(h)));
 
-    // Intelligent Column Resolution: Distinguish Temp Headcount from Currency Cost
-    if (tempIdx === -1 || costIdx === -1) {
-      const occupiedCols = [deptIdx, cadreIdx, presentIdx, absentIdx, tempIdx, costIdx].filter(i => i !== -1);
-      
-      for (let c = 0; c < 12; c++) {
-        if (occupiedCols.includes(c) || c === deptIdx || c === cadreIdx || c === presentIdx || c === absentIdx) continue;
-        
-        let hasLargeNumbers = false;
-        let hasSmallIntegers = false;
-
-        for (let r = headerLineIdx + 1; r < Math.min(matrix.length, headerLineIdx + 25); r++) {
-          if (!matrix[r]) continue;
-          const val = parseNum(matrix[r][c]);
-          if (val > 0) {
-            if (val > 150 || (val % 1 !== 0)) {
-              hasLargeNumbers = true;
-            } else {
-              hasSmallIntegers = true;
-            }
-          }
-        }
-
-        if (hasLargeNumbers && costIdx === -1) {
-          costIdx = c;
-        } else if (hasSmallIntegers && tempIdx === -1) {
-          tempIdx = c;
-        }
-      }
-    }
+    // This upload is permanent-worker attendance only. Never infer a cost or temporary headcount
+    // from an unlabelled numeric column; the labelled Cost column is the source of truth.
+    tempIdx = -1;
 
     // Smart Column Defaults
     let dCol = deptIdx !== -1 ? deptIdx : 0;

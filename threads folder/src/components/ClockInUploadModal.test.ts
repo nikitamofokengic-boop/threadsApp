@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { matchesImportHeaderLabel, interpretPermanentWorkerCost } from './ClockInUploadModal';
+import { findPermanentCostColumnIndex, matchesImportHeaderLabel, interpretPermanentWorkerCost } from './ClockInUploadModal';
 import { extractAndNormalizeDate, isValidDateSheetName } from '../utils/payCycle';
 
 test('matches the standard Cadre / Present / Absent / Cost labels used by clock-in imports', () => {
@@ -23,4 +23,10 @@ test('interprets clock-in cost as permanent-worker cost only and ignores tempora
   assert.equal(interpretPermanentWorkerCost(0, 10, 150, 3), 1500);
   assert.equal(interpretPermanentWorkerCost(0, 0, 0, 3), 0);
   assert.equal(interpretPermanentWorkerCost(0, 8, 0, 2), 0);
+});
+
+test('uses the exact Cost column instead of guessing from other numeric columns', () => {
+  assert.equal(findPermanentCostColumnIndex(['Department', 'Cadre', 'Present', 'Absent', 'Cost']), 4);
+  assert.equal(findPermanentCostColumnIndex(['Department', 'Present', 'Cost', 'Rate / Person']), 2);
+  assert.equal(findPermanentCostColumnIndex(['Department', 'Present', 'Absent', 'Temporary']), -1);
 });
